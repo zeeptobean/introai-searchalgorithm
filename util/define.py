@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 import numpy.typing as npt
@@ -27,15 +27,35 @@ class ContinuousProblem:
             np.clip(x, self.lower_bound, self.upper_bound, out=x)
         return self.objective_function(x)
     
+class RNGWrapper:
+    def __init__(self, seed: int | None = None):
+        if seed is None:
+            seed = np.random.SeedSequence().entropy
+        self.rng = np.random.default_rng(seed)
+        self._seed = seed
+
+    def uniform(self, low: Float, high: Float, size: int) -> FloatVector:
+        return self.rng.uniform(low, high, size)
+
+    def random(self) -> Float:
+        return self.rng.random()
+    
+    def get_seed(self) -> int:
+        return self._seed
+    
 @dataclass
-class Result:
+class _Result:
     type: str
     algorithm: str
     objective_function: str
     iterations: int
-    best_x: FloatVector
-    best_value: Float
-    history_x: list[FloatVector]
-    history_value: list[Float]
     history_info: list[str]
     rng_seed: int
+
+@dataclass 
+class ContinuousResult(_Result):
+    type: str = field(init=False, default="continuous")
+    last_x: FloatVector
+    last_value: Float
+    history_x: list[FloatVector]
+    history_value: list[Float]

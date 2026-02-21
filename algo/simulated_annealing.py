@@ -8,10 +8,8 @@ def simulated_annealing_continuous(
     step_bound: Float = 0.1, 
     max_iteration: int = 10000, 
     rng_seed: int | None = None
-) -> Result:
-    if rng_seed is None:
-        rng_seed = np.random.SeedSequence().entropy
-    rng = np.random.default_rng(rng_seed)
+) -> ContinuousResult:
+    rng = RNGWrapper(rng_seed)
     lower_bound = problem.lower_bound if problem.lower_bound is not None else -100
     upper_bound = problem.upper_bound if problem.upper_bound is not None else 100
 
@@ -31,23 +29,77 @@ def simulated_annealing_continuous(
 
         history_x.append(next_x)
         history_value.append(next_energy)
-        history_info.append(f"temp: {temp:.4f}, delta: {delta:.4f}")
 
         if delta > 0 or rng.random() < np.exp(delta / temp):
+            history_info.append(f"temp: {temp:.4f}, delta: {delta:.4f} (accepted)")
             current_x = next_x
             current_energy = next_energy
+        else:
+            history_info.append(f"temp: {temp:.4f}, delta: {delta:.4f} (rejected)")
 
         temp *= cooling_rate
         iteration += 1
 
-    return Result(
-        type="continuous",
+    return ContinuousResult(
         algorithm="Simulated_Annealing (geometric cooling)",
         objective_function=repr(problem),
-        best_x=current_x,
-        best_value=current_energy,
+        last_x=current_x,
+        last_value=current_energy,
         iterations=iteration,
-        rng_seed=rng_seed,
+        rng_seed=rng.get_seed(),
+        history_x=history_x,
+        history_value=history_value,
+        history_info=history_info
+    )
+"""
+Temperature is scaled linearly with iteration count
+"""
+def simulated_annealing_linear_continuous(
+    problem: ContinuousProblem, 
+    max_temp: Float = 10.0, 
+    step_bound: Float = 0.1, 
+    max_iteration: int = 10000, 
+    rng_seed: int | None = None
+) -> ContinuousResult:
+    rng = RNGWrapper(rng_seed)
+    lower_bound = problem.lower_bound if problem.lower_bound is not None else -100
+    upper_bound = problem.upper_bound if problem.upper_bound is not None else 100
+
+    current_x = rng.uniform(lower_bound, upper_bound, size=problem.dimension)
+    current_energy = problem.evaluate(current_x)
+
+    history_x: list[FloatVector] = [current_x]
+    history_value: list[Float] = [current_energy]
+    history_info: list[str] = [f"temp: {max_temp:.4f}, delta: None"]
+
+    iteration = 0
+    while iteration <= max_iteration:
+        temp = max_temp * (1 - iteration/ max_iteration)
+        temp = max(temp, 1e-12)     # Avoid divide by 0
+        noise = rng.uniform(-step_bound, step_bound, size=problem.dimension)
+        next_x = np.clip(current_x + noise, lower_bound, upper_bound)
+        next_energy = problem.objective_function(next_x)
+        delta = current_energy - next_energy
+
+        history_x.append(next_x)
+        history_value.append(next_energy)
+
+        if delta > 0 or rng.random() < np.exp(delta / temp):
+            history_info.append(f"temp: {temp:.4f}, delta: {delta:.4f} (accepted)")
+            current_x = next_x
+            current_energy = next_energy
+        else:
+            history_info.append(f"temp: {temp:.4f}, delta: {delta:.4f} (rejected)")
+
+        iteration += 1
+
+    return ContinuousResult(
+        algorithm="Simulated_Annealing (geometric cooling)",
+        objective_function=repr(problem),
+        last_x=current_x,
+        last_value=current_energy,
+        iterations=max_iteration,
+        rng_seed=rng.get_seed(),
         history_x=history_x,
         history_value=history_value,
         history_info=history_info
