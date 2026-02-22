@@ -1,4 +1,5 @@
 from util.define import *
+from util.util import *
 
 def simulated_annealing_continuous(
     problem: ContinuousProblem, 
@@ -13,11 +14,14 @@ def simulated_annealing_continuous(
     lower_bound = problem.lower_bound if problem.lower_bound is not None else -100
     upper_bound = problem.upper_bound if problem.upper_bound is not None else 100
 
+    timer = TimerWrapper()
+    timer.start()
+
     current_x = rng.uniform(lower_bound, upper_bound, size=problem.dimension)
     current_energy = problem.evaluate(current_x)
 
-    history_x: list[FloatVector] = [current_x]
-    history_value: list[Float] = [current_energy]
+    history_x: list[list[FloatVector]] = [[current_x]]
+    history_value: list[list[Float]] = [[current_energy]]
     history_info: list[str] = [f"temp: {temp:.4f}, delta: None"]
 
     iteration = 1
@@ -27,8 +31,8 @@ def simulated_annealing_continuous(
         next_energy = problem.objective_function(next_x)
         delta = current_energy - next_energy #minimizing energy => delta > 0 is better 
 
-        history_x.append(next_x)
-        history_value.append(next_energy)
+        history_x.append([next_x])
+        history_value.append([next_energy])
 
         if delta > 0 or rng.random() < np.exp(delta / temp):
             history_info.append(f"temp: {temp:.4f}, delta: {delta:.4f} (accepted)")
@@ -40,11 +44,18 @@ def simulated_annealing_continuous(
         temp *= cooling_rate
         iteration += 1
 
+    total_time = timer.stop()
+
+    best_x, best_value = get_min_2d(history_x, history_value)
+
     return ContinuousResult(
-        algorithm="Simulated_Annealing (geometric cooling)",
+        algorithm="Simulated Annealing (geometric cooling)",
         objective_function=repr(problem),
-        last_x=current_x,
-        last_value=current_energy,
+        last_x=[current_x],
+        last_value=[current_energy],
+        best_x=best_x,
+        best_value=best_value,
+        time=total_time,
         iterations=iteration,
         rng_seed=rng.get_seed(),
         history_x=history_x,
@@ -65,11 +76,14 @@ def simulated_annealing_linear_continuous(
     lower_bound = problem.lower_bound if problem.lower_bound is not None else -100
     upper_bound = problem.upper_bound if problem.upper_bound is not None else 100
 
+    timer = TimerWrapper()
+    timer.start()
+
     current_x = rng.uniform(lower_bound, upper_bound, size=problem.dimension)
     current_energy = problem.evaluate(current_x)
 
-    history_x: list[FloatVector] = [current_x]
-    history_value: list[Float] = [current_energy]
+    history_x: list[list[FloatVector]] = [[current_x]]
+    history_value: list[list[Float]] = [[current_energy]]
     history_info: list[str] = [f"temp: {max_temp:.4f}, delta: None"]
 
     iteration = 0
@@ -81,8 +95,8 @@ def simulated_annealing_linear_continuous(
         next_energy = problem.objective_function(next_x)
         delta = current_energy - next_energy
 
-        history_x.append(next_x)
-        history_value.append(next_energy)
+        history_x.append([next_x])
+        history_value.append([next_energy])
 
         if delta > 0 or rng.random() < np.exp(delta / temp):
             history_info.append(f"temp: {temp:.4f}, delta: {delta:.4f} (accepted)")
@@ -92,13 +106,19 @@ def simulated_annealing_linear_continuous(
             history_info.append(f"temp: {temp:.4f}, delta: {delta:.4f} (rejected)")
 
         iteration += 1
+    total_time = timer.stop()
+
+    best_x, best_value = get_min_2d(history_x, history_value)
 
     return ContinuousResult(
-        algorithm="Simulated_Annealing (geometric cooling)",
+        algorithm="Simulated Annealing (linear cooling)",
         objective_function=repr(problem),
-        last_x=current_x,
-        last_value=current_energy,
-        iterations=max_iteration,
+        last_x=[current_x],
+        last_value=[current_energy],
+        best_x=best_x,
+        best_value=best_value,
+        time=total_time,
+        iterations=iteration,
         rng_seed=rng.get_seed(),
         history_x=history_x,
         history_value=history_value,
