@@ -60,19 +60,26 @@ class SphereFunction(ContinuousProblem):
         return f"Sphere function: dimension={self.dimension}"
 
 """
+Michalewicz Function[1]
 m: steepness parameter
 x_i within [0, PI]
 
-Global min With dimension d: 
-d = 2: f(2.20, 1.57) ≈ -1.8013
-d = 5: min = -4.687658
-d = 10: min = -9.66015
-d = 20: min = -19.6370
-d = 30: min = -29.6309
-d = 50: min = -49.6248
+Global min With dimension d and m = 10: 
+d = 1: f(2.20) = -0.8013 [1]
+d = 2: f(2.20, 1.57) ≈ -1.8013  [2]
+d = 5: min = -4.687658  [2]
+d = 10: min = -9.66015  [2][3][4]
+d = 15: min = -14.66015  [3]
+d = 20: min = -19.6370  [4]
+d = 25: min = -24.633194  [3]
+d = 30: min = -29.6309  [4]
+d = 50: min = -49.6248  [4]
+d = 75: min = -74.6248  [3]
 
-https://www.sfu.ca/~ssurjano/michal.html
-https://doi.org/10.48550/arXiv.2001.11465
+[1] Michalewicz, Z. (1992). Genetic Algorithms + Data Structures = Evolution Programs. Springer-Verlag
+[2] https://www.sfu.ca/~ssurjano/michal.html
+[3] Charlie Vanaret, Jean-Baptiste Gotteland, Nicolas Durand, Jean-Marc Alliot. Certified Global Minima for a Benchmark of Difficult Optimization Problems. 2014. ffhal-00996713f
+[4] https://doi.org/10.48550/arXiv.2001.11465
 """
 class MichalewiczFunction(ContinuousProblem):
     def _michalewicz_function(self, x: FloatVector) -> Float:
