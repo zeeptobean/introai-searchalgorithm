@@ -59,7 +59,7 @@ class _Result:
     algorithm: str
     objective_function: str
     iterations: int
-    history_info: list[str]     # additional info for each iteration
+    history_info: list[str | None]     # additional info for each iteration
     rng_seed: int
     time: float
 
@@ -72,6 +72,10 @@ class ContinuousResult(_Result):
     best_value: Float
     history_x: list[list[FloatVector]]  # history for each x for each iteration
     history_value: list[list[Float]]
+
+    def __post_init__(self):
+        if not (len(self.history_x) == len(self.history_value) and len(self.history_x) == len(self.history_info)):
+            raise ValueError("len(history_x) == len(history_value) == len(history_info) is false")
 
     def _format_float(self, v: Float) -> str:
         return f"{float(v):.9f}"
@@ -96,7 +100,8 @@ class ContinuousResult(_Result):
 
         history_str = ""
         for i, (x, val, info) in enumerate(zip(format_history_x, format_history_value, self.history_info)):
-            history_str += f"Ite {i}: x = {x}; value = {val}; info = {info}\n"
+            info_str = f"info = {info};" if info else ""
+            history_str += f"Ite {i}: x = {x}; value = {val}; {info_str}\n"
 
         format_str = f"""
 Algorithm: {self.algorithm}

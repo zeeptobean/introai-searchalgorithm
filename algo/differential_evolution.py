@@ -1,11 +1,12 @@
 from util.define import *
+from util.util import *
 
 def differential_evolution_continuous(
     problem: ContinuousProblem, 
     population_size: int = 20, 
     mutation_factor: Float = 0.8, 
     crossover_rate: Float = 0.7, 
-    generation: int = 10000, 
+    generation: int = 100, 
     rng_seed: int | None = None
 ) -> ContinuousResult:
     if mutation_factor < 0 or mutation_factor > 2:
@@ -21,18 +22,21 @@ def differential_evolution_continuous(
     lower_bound = problem.lower_bound if problem.lower_bound is not None else -100
     upper_bound = problem.upper_bound if problem.upper_bound is not None else 100
 
+    timer = TimerWrapper()
+    timer.start()
+
     population: list[FloatVector] = [rng_wrapper.uniform(lower_bound, upper_bound, size=problem.dimension) for _ in range(population_size)]
     fitness = np.array([problem.evaluate(x) for x in population])
 
-    history_x: list[FloatVector] = []
-    history_value: list[Float] = []
-    history_info: list[str] = []
+    history_x: list[list[FloatVector]] = [[x.copy() for x in population]]
+    history_value: list[list[Float]] = [list(fitness)]
 
-    for ite in range(generation):
+    for _ in range(generation):
         for i in range(population_size):
             # Mutation
             idx_list = [idx for idx in range(population_size) if idx != i]
-            a, b, c = population[rng_wrapper.rng.choice(idx_list, 3, replace=False)]
+            a_idx, b_idx, c_idx = rng_wrapper.rng.choice(idx_list, 3, replace=False)
+            a, b, c = population[a_idx], population[b_idx], population[c_idx]
             mutant: FloatVector = np.clip(a + mutation_factor * (b - c), lower_bound, upper_bound)
 
             # Crossover
@@ -44,12 +48,21 @@ def differential_evolution_continuous(
             if trial_fitness < fitness[i]:  # Minimizing fitness
                 population[i] = trial
                 fitness[i] = trial_fitness
+        history_x.append([x.copy() for x in population])
+        history_value.append(list(fitness))
+    total_time = timer.stop()
+
+    history_info: list[str | None] = [None] * len(history_x)
+    best_x, best_value = get_min_2d(history_x, history_value)
 
     return ContinuousResult(
         algorithm="Differential Evolution",
         objective_function=repr(problem),
-        last_x=population[np.argmin(fitness)],
-        last_value=np.min(fitness),
+        time=total_time,
+        last_x=population,
+        last_value=list(fitness),
+        best_x=best_x,
+        best_value=best_value,
         iterations=generation,
         rng_seed=rng_wrapper.get_seed(),
         history_x=history_x,

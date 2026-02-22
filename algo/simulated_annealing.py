@@ -22,7 +22,7 @@ def simulated_annealing_continuous(
 
     history_x: list[list[FloatVector]] = [[current_x]]
     history_value: list[list[Float]] = [[current_energy]]
-    history_info: list[str] = [f"temp: {temp:.4f}, delta: None"]
+    history_info: list[str | None] = [f"temp: {temp:.4f}, delta: None"]
 
     iteration = 1
     while temp > min_temp and iteration <= max_iteration:
@@ -84,7 +84,7 @@ def simulated_annealing_linear_continuous(
 
     history_x: list[list[FloatVector]] = [[current_x]]
     history_value: list[list[Float]] = [[current_energy]]
-    history_info: list[str] = [f"temp: {max_temp:.4f}, delta: None"]
+    history_info: list[str | None] = [f"temp: {max_temp:.4f}, delta: None"]
 
     iteration = 0
     while iteration <= max_iteration:
