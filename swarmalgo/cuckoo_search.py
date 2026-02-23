@@ -1,6 +1,8 @@
 from util.define import *
 from util.util import *
 import math 
+from util.result import ContinuousResult
+from function.continuous_function import ContinuousProblem
 
 # Mantegna's algorithm
 def _levy_flight_step(rng_wrapper: RNGWrapper, dimension: int, beta: Float) -> FloatVector:
@@ -88,7 +90,7 @@ def cuckoo_search_continuous(
 
     return ContinuousResult(
         algorithm="Cuckoo Search",
-        objective_function=repr(problem),
+        problem=problem,
         time=total_time,
         last_x=nests,
         last_value=list(fitness),

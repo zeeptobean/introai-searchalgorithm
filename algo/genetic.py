@@ -1,6 +1,8 @@
 from util.define import *
 from util.util import *
 import numpy as np
+from util.result import ContinuousResult
+from function.continuous_function import ContinuousProblem
 
 def _tournament_selection(population_size: int, fitness: np.ndarray, k: int, rng: np.random.Generator) -> int:
     """Selects an individual using tournament selection."""
@@ -98,7 +100,7 @@ def genetic_algorithm_continuous(
 
     return ContinuousResult(
         algorithm="Genetic Algorithm",
-        objective_function=repr(problem),
+        problem=problem,
         time=total_time,
         last_x=population,
         last_value=list(fitness),

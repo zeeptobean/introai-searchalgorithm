@@ -1,5 +1,7 @@
 from util.define import *
 from util.util import *
+from util.result import ContinuousResult
+from function.continuous_function import ContinuousProblem
 
 def simulated_annealing_continuous(
     problem: ContinuousProblem, 
@@ -50,7 +52,7 @@ def simulated_annealing_continuous(
 
     return ContinuousResult(
         algorithm="Simulated Annealing (geometric cooling)",
-        objective_function=repr(problem),
+        problem=problem,
         last_x=[current_x],
         last_value=[current_energy],
         best_x=best_x,
@@ -112,7 +114,7 @@ def simulated_annealing_linear_continuous(
 
     return ContinuousResult(
         algorithm="Simulated Annealing (linear cooling)",
-        objective_function=repr(problem),
+        problem=problem,
         last_x=[current_x],
         last_value=[current_energy],
         best_x=best_x,

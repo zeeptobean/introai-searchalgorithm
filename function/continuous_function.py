@@ -4,6 +4,75 @@ from typing import Callable, override
 import numpy as np
 import numpy.typing as npt
 
+class ContinuousProblem:
+    "Abstract class for continuous optimization problem"
+    def __init__(self, objective_function: ContinuousFunction, dimension: int, lower_bound: Float | None = None, upper_bound: Float | None = None):
+        if(dimension <= 0):
+            raise ValueError("Dimension must be greater than 0.")
+        self.objective_function = objective_function
+        self.dimension = dimension
+        self.lower_bound = lower_bound
+        self.upper_bound = upper_bound
+
+    def __repr__(self) -> str:
+        return f"Unknown continuous problem: objective_function={self.objective_function}, dimension={self.dimension}, bound=[{self.lower_bound}, {self.upper_bound}]"
+    
+    def to_json(self) -> dict:
+        return {
+            "objective_function": self.__class__.__name__,
+            "dimension": self.dimension,
+            "lower_bound": self.lower_bound,
+            "upper_bound": self.upper_bound
+        }
+    
+    @staticmethod
+    def from_json(json_data: dict) -> 'ContinuousProblem':
+        """Reconstruct a ContinuousProblem subclass from JSON metadata"""
+        function_type = json_data.get("objective_function")
+        dimension = json_data["dimension"]
+        
+        constructors = {
+            "RastriginFunction": lambda: RastriginFunction(
+                dimension, 
+                json_data.get("lower_bound", -5.12), 
+                json_data.get("upper_bound", 5.12)
+            ),
+            "RosenbrockFunction": lambda: RosenbrockFunction(dimension),
+            "SphereFunction": lambda: SphereFunction(dimension),
+            "MichalewiczFunction": lambda: MichalewiczFunction(
+                dimension, 
+                json_data.get("lower_bound", 0.0),
+                json_data.get("upper_bound", np.pi)
+            ),
+            "StyblinskiTangFunction": lambda: StyblinskiTangFunction(
+                dimension,
+                json_data.get("lower_bound", -5.0),
+                json_data.get("upper_bound", 5.0)
+            ),
+            "GriewankFunction": lambda: GriewankFunction(
+                dimension,
+                json_data.get("lower_bound", -600.0),
+                json_data.get("upper_bound", 600.0)
+            ),
+            "AckleyFunction": lambda: AckleyFunction(
+                dimension,
+                json_data.get("lower_bound", -32.768),
+                json_data.get("upper_bound", 32.768)
+            ),
+        }
+        
+        if function_type not in constructors:
+            raise ValueError(f"Unknown function type: {function_type}")
+        
+        return constructors[function_type]()
+    
+    def evaluate(self, x: FloatVector) -> Float:
+        if(len(x) != self.dimension):
+            raise ValueError(f"Input vector length ({len(x)}) != dimension ({self.dimension})")
+        if self.lower_bound is not None and self.upper_bound is not None:
+            np.clip(x, self.lower_bound, self.upper_bound, out=x)
+        return self.objective_function(x)
+
 """
 Global min: f(0) = 0
 x_i within [-5.12, 5.12]
@@ -83,18 +152,18 @@ d = 75: min = -74.6248  [3]
 """
 class MichalewiczFunction(ContinuousProblem):
     def _michalewicz_function(self, x: FloatVector) -> Float:
+        m = 10.0
         i = np.arange(1, x.size + 1)
-        term1 = np.sin(x) * (np.sin(i * x**2 / np.pi))**(2 * self.m)
+        term1 = np.sin(x) * (np.sin(i * x**2 / np.pi))**(2 * m)
         return -np.sum(term1)
 
-    def __init__(self, dimension: int, m: int = 10, lower_bound: Float = 0.0, upper_bound: Float = np.pi):
-        self.m = m
+    def __init__(self, dimension: int, lower_bound: Float = 0.0, upper_bound: Float = np.pi):
         super().__init__(objective_function=self._michalewicz_function, dimension=dimension, lower_bound=lower_bound, upper_bound=upper_bound)
 
     @override
     def __repr__(self) -> str:
-        return f"Michalewicz function: dimension={self.dimension}, bound=[{self.lower_bound}, {self.upper_bound}], m={self.m}"
-
+        return f"Michalewicz function: dimension={self.dimension}, bound=[{self.lower_bound}, {self.upper_bound}]"
+    
 """
 Global Minimum with d dimension: f(-2.903534, -2.903534, ..., -2.903534) ≈ -39.16599*d
 x_i within [-5, 5]
@@ -131,6 +200,7 @@ class GriewankFunction(ContinuousProblem):
 """
 x_i within [-32.768, 32.768]
 Global min: f(0, 0, ..., 0) = 0
+config: a = 20, b = 0.2, c = 2 * pi
 """
 class AckleyFunction(ContinuousProblem):
     def _ackley_function_generalized(self, x: FloatVector, a: Float = 20, b: Float = 0.2, c: Float = 2 * np.pi) -> Float:

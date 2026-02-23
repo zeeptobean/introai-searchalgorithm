@@ -1,5 +1,7 @@
 from util.define import *
 from util.util import *
+from util.result import ContinuousResult
+from function.continuous_function import ContinuousProblem
 
 def differential_evolution_continuous(
     problem: ContinuousProblem, 
@@ -57,7 +59,7 @@ def differential_evolution_continuous(
 
     return ContinuousResult(
         algorithm="Differential Evolution",
-        objective_function=repr(problem),
+        problem=problem,
         time=total_time,
         last_x=population,
         last_value=list(fitness),

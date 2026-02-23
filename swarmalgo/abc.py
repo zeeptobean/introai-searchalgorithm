@@ -1,6 +1,8 @@
 from util.define import *
 from util.util import *
 import numpy as np
+from util.result import ContinuousResult
+from function.continuous_function import ContinuousProblem
 
 def abc_continuous(
     problem: ContinuousProblem,
@@ -123,7 +125,7 @@ def abc_continuous(
 
     return ContinuousResult(
         algorithm="Artificial Bee Colony",
-        objective_function=repr(problem),
+        problem=problem,
         time=total_time,
         last_x=population,
         last_value=list(fitness),
