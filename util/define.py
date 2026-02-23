@@ -6,6 +6,7 @@ import time
 Float = float
 FloatVector = npt.NDArray[np.float64]
 ContinuousFunction = Callable[[FloatVector], float]
+DiscreteFunction = Callable[[FloatVector], float]
     
 class RNGWrapper:
     def __init__(self, seed: int | None = None):
