@@ -37,6 +37,12 @@ class DiscreteProblem:
                 dimension,
                 json_data.get("distance_matrix")
             ),
+            "KnapsackFunction": lambda: KnapsackFunction(
+                dimension,
+                json_data.get("weights"),
+                json_data.get("values"),
+                json_data.get("capacity")
+            ),
         }
         
         if function_type not in constructors:
