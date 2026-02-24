@@ -94,3 +94,36 @@ class TSPFunction(DiscreteProblem):
     
     def __repr__(self) -> str:
         return f"TSPFunction(cities={self.dimension})"
+
+# Return -value because we want to maximize value, but our algorithms minimize the objective
+class KnapsackFunction(DiscreteProblem):
+    def __init__(self, weights: npt.NDArray[np.float64], values: npt.NDArray[np.float64], capacity: Float):
+        self.weights = weights
+        self.values = values
+        self.capacity = capacity
+        dimension = weights.shape[0]
+        super().__init__(objective_function=self.knapsack_objective, neighbor_function=self.knapsack_neighbor, random_solution_function=self.knapsack_random_solution, dimension=dimension)
+
+    def knapsack_objective(self, selection: FloatVector) -> Float:
+        """Calculate the total value of the given selection"""
+        current_weight = np.dot(selection, self.weights)
+        if current_weight > self.capacity:
+            return float('inf')  # Penalize selections that exceed capacity
+        return -np.dot(selection, self.values) # We negate because we want to maximize value, but our algorithms minimize the objective
+
+    def knapsack_neighbor(self, x: FloatVector, step_size: Float, rng: RNGWrapper) -> FloatVector:
+        """Generate a neighboring solution by swapping two items in the selection"""
+        neighbor = x.copy()
+        # Use step_size to determine number of swaps (at least 1)
+        num_swaps = max(1, int(step_size))
+        for _ in range(num_swaps):
+            idx = rng.rng.integers(0, self.dimension)
+            neighbor[idx] = 1 - neighbor[idx]  # Flip the selection of the item
+        return neighbor
+
+    def knapsack_random_solution(self, rng: RNGWrapper) -> FloatVector:
+        """Generate a random selection (binary vector indicating item inclusion)"""
+        return rng.rng.integers(0, 2, size=self.dimension).astype(float)
+    
+    def __repr__(self) -> str:
+        return f"KnapsackFunction(items={self.dimension}, capacity={self.capacity})"
