@@ -4,7 +4,7 @@ from typing import Callable, override
 import numpy as np
 import numpy.typing as npt
 
-DiscreteNeighborFunction = Callable[[FloatVector, Float], FloatVector]
+DiscreteNeighborFunction = Callable[[FloatVector, Float, RNGWrapper], FloatVector]
 DiscreteRandomSolutionFunction = Callable[[RNGWrapper], FloatVector]
 
 class DiscreteProblem:
@@ -18,7 +18,7 @@ class DiscreteProblem:
         self.random_solution_function = random_solution_function
 
     def __repr__(self) -> str:
-        return f"Unknown discrete problem: objective_function={self.objective_function}, dimension={self.dimension}"
+        return f"{self.__class__.__name__}(dimension={self.dimension})"
     
     def to_json(self) -> dict:
         return {
@@ -53,12 +53,12 @@ class DiscreteProblem:
             raise ValueError(f"Input vector length ({len(x)}) != dimension ({self.dimension})")
         return self.objective_function(x)
     
-    def neighbor(self, x: FloatVector, step_size: Float) -> FloatVector:
+    def neighbor(self, x: FloatVector, step_size: Float, rng: RNGWrapper) -> FloatVector:
         """Generate a neighboring solution by randomly perturbing one dimension"""
         if(len(x) != self.dimension):
             raise ValueError(f"Input vector length ({len(x)}) != dimension ({self.dimension})")
         
-        return self.neighbor_function(x, step_size)
+        return self.neighbor_function(x, step_size, rng)
 
 
 class TSPFunction(DiscreteProblem):
@@ -76,11 +76,14 @@ class TSPFunction(DiscreteProblem):
             total_distance += self.distance_matrix[from_city, to_city]
         return total_distance
 
-    def tsp_neighbor(self, x: FloatVector, step_size: Float) -> FloatVector:
+    def tsp_neighbor(self, x: FloatVector, step_size: Float, rng: RNGWrapper) -> FloatVector:
         """Generate a neighboring solution by swapping two cities in the tour"""
         neighbor = x.copy()
-        idx1, idx2 = np.random.choice(self.dimension, size=2, replace=False)
-        neighbor[idx1], neighbor[idx2] = neighbor[idx2], neighbor[idx1]
+        # Use step_size to determine number of swaps (at least 1)
+        num_swaps = max(1, int(step_size))
+        for _ in range(num_swaps):
+            idx1, idx2 = rng.rng.choice(self.dimension, size=2, replace=False)
+            neighbor[idx1], neighbor[idx2] = neighbor[idx2], neighbor[idx1]
         return neighbor
 
     def tsp_random_solution(self, rng: RNGWrapper) -> FloatVector:
@@ -89,3 +92,5 @@ class TSPFunction(DiscreteProblem):
         rng.rng.shuffle(tour)
         return tour.astype(float)
     
+    def __repr__(self) -> str:
+        return f"TSPFunction(cities={self.dimension})"

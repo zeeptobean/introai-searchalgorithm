@@ -118,6 +118,7 @@ History:
         return ContinuousResult.from_json(json_dict)
     
 
+@dataclass
 class DiscreteResult(_Result):
     type: str = field(init=False, default="discrete")
     problem: discfunc.DiscreteProblem

@@ -153,9 +153,10 @@ def simulated_annealing_discrete(
 
     iteration = 1
     while temp > min_temp and iteration <= max_iteration:
-        noise = rng.uniform(-step_bound, step_bound, size=problem.dimension)
-        next_x = problem.neighbor(current_x, step_bound)
+        # noise = rng.uniform(-step_bound, step_bound, size=problem.dimension)
+        next_x = problem.neighbor(current_x, step_bound, rng)
         next_energy = problem.evaluate(next_x)
+
         delta = current_energy - next_energy #minimizing energy => delta > 0 is better 
 
         history_x.append([next_x])
