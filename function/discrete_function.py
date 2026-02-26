@@ -134,38 +134,82 @@ class KnapsackFunction(DiscreteProblem):
         return f"KnapsackFunction(items={self.dimension}, capacity={self.capacity})"
 
 class GraphColoringFunction(DiscreteProblem):
-    def __init__(self, adjacency_matrix: npt.NDArray[np.int_], num_colors: int):
+    def __init__(self, adjacency_matrix: npt.NDArray[np.int_]):
+        """
+        Initialize Graph Coloring problem to find minimum number of colors needed.
+        
+        The algorithm will search for the minimum chromatic number by trying
+        colorings with up to n colors (where n = number of vertices).
+        This is always sufficient since any graph with n vertices can be colored
+        with at most n colors.
+        
+        Args:
+            adjacency_matrix: Adjacency matrix representing the graph
+        """
         self.adjacency_matrix = adjacency_matrix
-        self.num_colors = num_colors
         dimension = adjacency_matrix.shape[0]
         super().__init__(objective_function=self.graph_coloring_objective, neighbor_function=self.graph_coloring_neighbor, random_solution_function=self.graph_coloring_random_solution, dimension=dimension)
 
     def graph_coloring_objective(self, colors: FloatVector) -> Float:
-        """Calculate the number of conflicts in the given coloring"""
+        """
+        Calculate objective: number of colors used + penalty for conflicts.
+        Goal is to minimize both the number of colors and conflicts.
+        """
+        # Count conflicts
         conflicts = 0
         for i in range(self.dimension):
             for j in range(i + 1, self.dimension):
                 if self.adjacency_matrix[i, j] > 0 and int(colors[i]) == int(colors[j]):
                     conflicts += 1
-        return float(conflicts)
+        
+        # Count unique colors used
+        num_colors_used = len(np.unique(colors.astype(int)))
+        
+        # Objective: minimize colors + heavily penalize conflicts
+        # Large penalty ensures we prioritize valid coloring over minimizing colors
+        conflict_penalty = 10000
+        return float(num_colors_used + conflict_penalty * conflicts)
 
     def graph_coloring_neighbor(self, x: FloatVector, step_size: Float, rng: RNGWrapper) -> FloatVector:
-        """Generate a neighboring solution by changing the color of a random node"""
+        """Generate a neighboring solution by changing the color of random vertices"""
         neighbor = x.copy()
+        
+        # Determine current number of colors used
+        num_colors_used = len(np.unique(neighbor.astype(int)))
+        # Allow colors in range [0, num_colors_used] to enable:
+        # - Reducing colors (reuse existing colors)
+        # - Adding at most one new color (explore new possibilities)
+        max_color = min(num_colors_used, self.dimension - 1)
+        
         num_changes = max(1, int(step_size))
         for _ in range(num_changes):
             vertex = rng.rng.integers(0, self.dimension)
-            current_color = int(neighbor[vertex])
-
-            # Choose a different color
-            available_colors = list(range(self.num_colors))
-            available_colors.remove(current_color)
-            neighbor[vertex] = rng.rng.choice(available_colors)
+            # Random color from currently used colors (or one new color)
+            neighbor[vertex] = rng.rng.integers(0, max_color + 1)
         return neighbor
 
     def graph_coloring_random_solution(self, rng: RNGWrapper) -> FloatVector:
-        """Generate a random coloring (vector of color indices)"""
-        return rng.rng.integers(0, self.num_colors, size=self.dimension).astype(float)
+        """
+        Generate a random coloring starting with fewer colors.
+        Uses greedy approach to create initial solution with reasonable number of colors.
+        """
+        # Start with a greedy coloring to get a reasonable initial solution
+        colors = np.full(self.dimension, -1, dtype=float)
+        
+        for vertex in range(self.dimension):
+            # Get colors of adjacent vertices
+            adjacent_colors = set()
+            for neighbor in range(self.dimension):
+                if self.adjacency_matrix[vertex, neighbor] > 0 and colors[neighbor] >= 0:
+                    adjacent_colors.add(int(colors[neighbor]))
+            
+            # Find the smallest color not used by adjacent vertices
+            color = 0
+            while color in adjacent_colors:
+                color += 1
+            colors[vertex] = float(color)
+        
+        return colors
     
     def __repr__(self) -> str:
-        return f"GraphColoringFunction(nodes={self.dimension}, colors={self.num_colors})"
+        return f"GraphColoringFunction(nodes={self.dimension})"
