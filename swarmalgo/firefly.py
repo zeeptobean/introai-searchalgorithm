@@ -1,8 +1,9 @@
 from util.define import *
 from util.util import *
 import numpy as np
-from util.result import ContinuousResult
+from util.result import ContinuousResult, DiscreteResult
 from function.continuous_function import ContinuousProblem
+from function.discrete_function import DiscreteProblem
 
 def firefly_continuous(
     problem: ContinuousProblem,
@@ -86,6 +87,114 @@ def firefly_continuous(
     best_x, best_value = get_min_2d(history_x, history_value)
 
     return ContinuousResult(
+        algorithm="Firefly Algorithm",
+        problem=problem,
+        time=total_time,
+        last_x=population,
+        last_value=list(fitness),
+        best_x=best_x,
+        best_value=best_value,
+        iterations=generation,
+        rng_seed=rng_wrapper.get_seed(),
+        history_x=history_x,
+        history_value=history_value,
+        history_info=history_info
+    )
+
+def firefly_discrete(
+    problem: DiscreteProblem,
+    population_size: int = 50,
+    generation: int = 100,
+    alpha: float = 0.5,
+    beta0: float = 1.0,
+    gamma: float = 1.0,
+    step_size: Float = 1.0,
+    rng_seed: int | None = None
+) -> DiscreteResult:
+    """
+    Implements the Firefly Algorithm (FA) for discrete optimization problems.
+
+    Args:
+        problem: The discrete optimization problem to solve.
+        population_size: The number of fireflies in the population.
+        generation: The number of iterations to run the algorithm.
+        alpha: Randomization parameter controlling random movement probability.
+        beta0: Base attractiveness value.
+        gamma: Light absorption coefficient, controlling how attractiveness decreases with distance.
+        step_size: Step size for neighbor generation.
+        rng_seed: Seed for the random number generator for reproducibility.
+    """
+    if population_size <= 0:
+        raise ValueError("population_size must be positive")
+    if generation <= 0:
+        raise ValueError("generation must be positive")
+    if alpha < 0 or alpha > 1:
+        raise ValueError("alpha must be in [0, 1]")
+
+    rng_wrapper = RNGWrapper(rng_seed)
+
+    timer = TimerWrapper()
+    timer.start()
+
+    population: list[FloatVector] = [problem.random_solution(rng_wrapper) for _ in range(population_size)]
+    fitness = np.array([problem.evaluate(p) for p in population])
+
+    history_x: list[list[FloatVector]] = [[p.copy() for p in population]]
+    history_value: list[list[Float]] = [list(fitness)]
+
+    is_permutation = (len(np.unique(population[0])) == len(population[0]) and 
+                        np.allclose(np.sort(population[0]), np.arange(len(population[0]))))
+    
+    for gen in range(generation):
+        for i in range(population_size):
+            for j in range(population_size):
+                if fitness[j] < fitness[i]:
+                    hamming_distance = np.sum(population[i] != population[j])
+                    
+                    normalized_distance = hamming_distance / problem.dimension
+                    beta = beta0 * np.exp(-gamma * normalized_distance)
+                    
+                    if rng_wrapper.random() < beta:
+                        effective_step = max(1, int(step_size * beta))
+                        new_solution = problem.neighbor(population[i], effective_step, rng_wrapper)
+                        
+                        if not is_permutation and rng_wrapper.random() < beta:
+                            blend_mask = rng_wrapper.rng.random(problem.dimension) < beta
+                            new_solution = np.where(blend_mask, population[j], new_solution)
+                        
+                        new_fitness = problem.evaluate(new_solution)
+                        
+                        if new_fitness < fitness[i]:
+                            population[i] = new_solution
+                            fitness[i] = new_fitness
+                            break  
+        
+        best_idx = np.argmin(fitness)
+        if rng_wrapper.random() < alpha:
+            new_solution = problem.neighbor(population[best_idx], step_size, rng_wrapper)
+            new_fitness = problem.evaluate(new_solution)
+            
+            if new_fitness < fitness[best_idx]:
+                population[best_idx] = new_solution
+                fitness[best_idx] = new_fitness
+        
+        for i in range(population_size):
+            if rng_wrapper.random() < alpha * 0.1: 
+                new_solution = problem.neighbor(population[i], step_size, rng_wrapper)
+                new_fitness = problem.evaluate(new_solution)
+                
+                if new_fitness < fitness[i]:
+                    population[i] = new_solution
+                    fitness[i] = new_fitness
+
+        history_x.append([p.copy() for p in population])
+        history_value.append(list(fitness))
+
+    total_time = timer.stop()
+    history_info: list[str | None] = [None] * len(history_x)
+    best_x, best_value = get_min_2d(history_x, history_value)
+
+    return DiscreteResult(
         algorithm="Firefly Algorithm",
         problem=problem,
         time=total_time,
