@@ -5,6 +5,7 @@ import time
 
 Float = float
 FloatVector = npt.NDArray[np.float64]
+IntVector = npt.NDArray[np.int64]
 ContinuousFunction = Callable[[FloatVector], float]
 DiscreteFunction = Callable[[FloatVector], float]
     

@@ -135,7 +135,7 @@ def simulated_annealing_discrete(
     temp: Float = 10.0, 
     cooling_rate: Float = 0.95, 
     min_temp: Float = 0.001, 
-    step_bound: Float = 0.1, 
+    step_bound: int = 2, 
     max_iteration: int = 10000, 
     rng_seed: int | None = None
 ) -> DiscreteResult:
@@ -153,8 +153,8 @@ def simulated_annealing_discrete(
 
     iteration = 1
     while temp > min_temp and iteration <= max_iteration:
-        # noise = rng.uniform(-step_bound, step_bound, size=problem.dimension)
-        next_x = problem.neighbor(current_x, step_bound, rng)
+        noise = int(rng.rng.integers(1, step_bound, endpoint=True))
+        next_x = problem.neighbor(current_x, noise, rng)
         next_energy = problem.evaluate(next_x)
 
         delta = current_energy - next_energy #minimizing energy => delta > 0 is better 
@@ -197,7 +197,7 @@ Temperature is scaled linearly with iteration count
 def simulated_annealing_linear_discrete(
     problem: DiscreteProblem, 
     max_temp: Float = 10.0, 
-    step_bound: Float = 0.1, 
+    step_bound: int = 2, 
     max_iteration: int = 10000, 
     rng_seed: int | None = None
 ) -> DiscreteResult:
@@ -216,7 +216,8 @@ def simulated_annealing_linear_discrete(
     while iteration <= max_iteration:
         temp = max_temp * (1 - iteration/ max_iteration)
         temp = max(temp, 1e-12)     # Avoid divide by 0
-        next_x = problem.neighbor(current_x, step_bound, rng)
+        noise = int(rng.rng.integers(1, step_bound, endpoint=True))
+        next_x = problem.neighbor(current_x, noise, rng)
         next_energy = problem.evaluate(next_x)
         delta = current_energy - next_energy
 
