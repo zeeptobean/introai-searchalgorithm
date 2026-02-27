@@ -108,7 +108,8 @@ def differential_evolution_discrete(
             idx_list = [idx for idx in range(population_size) if idx != i]
             a_idx = rng_wrapper.rng.choice(idx_list)
             
-            mutant = problem.neighbor(population[a_idx], mutation_factor, rng_wrapper)
+            swap_cnt = int(rng_wrapper.rng.integers(1, max(2, int(problem.dimension * mutation_factor))))
+            mutant = problem.neighbor(population[a_idx], swap_cnt, rng_wrapper)
 
             # 2. Crossover for permutation problems (Order Crossover - OX)
             if rng_wrapper.rng.random() < crossover_rate:
