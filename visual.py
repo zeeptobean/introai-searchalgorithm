@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 import networkx as nx
 import plotly.graph_objects as go
@@ -233,6 +235,7 @@ def visualize_result(result: ContinuousResult, method: str = '3d',
     return fig
 
 def visualize_knapsack(result: 'DiscreteResult', dark_theme: bool = False) -> None:
+    smooth_transition_threshold = 300
     history = result.history
     iterations: int = len(history.history_x)
     
@@ -249,20 +252,26 @@ def visualize_knapsack(result: 'DiscreteResult', dark_theme: bool = False) -> No
     plotly_template: str = "plotly_dark" if dark_theme else "plotly_white"
     heatmap_colorscale: str = "Plasma" if dark_theme else "Viridis"
 
-    # --- 1. Process Convergence Data (Fixing the "gap") ---
+    # --- 1. Process Convergence Data ---
     best_vals: list[float] = []
     avg_vals: list[float] = []
     
     for gen in history.history_value:
-        # Filter out extreme penalties (e.g., massive negative numbers for overweight knapsacks)
         valid_fitnesses: list[float] = [float(v) for v in gen if v is not None and float(v) > -1e6] 
         
         if valid_fitnesses:
             best_vals.append(max(valid_fitnesses))
             avg_vals.append(float(np.mean(valid_fitnesses)))
         else:
-            best_vals.append(np.nan)
-            avg_vals.append(np.nan)
+            best_vals.append(math.nan)
+            avg_vals.append(math.nan)
+
+    # Find the First Overall Best Value
+    overall_best_val = float(result.best_value)
+    if math.isinf(overall_best_val) or math.isnan(overall_best_val):
+        first_best_idx = -1
+    else:
+        first_best_idx = best_vals.index(overall_best_val)
 
     # --- 2. Process Heatmap Data & Labels ---
     heatmap_data: np.ndarray = np.zeros((num_items, iterations))
@@ -270,11 +279,9 @@ def visualize_knapsack(result: 'DiscreteResult', dark_theme: bool = False) -> No
         gen_x_array: np.ndarray = np.array(history.history_x[t])
         heatmap_data[:, t] = np.mean(gen_x_array, axis=0)
 
-    # Type guard / Cast to ensure we are dealing with a Knapsack problem with weights/values
     if not hasattr(result.problem, 'weights') or not hasattr(result.problem, 'values'):
         raise TypeError("result.problem must be of type KnapsackFunction with defined weights and values.")
     
-    # Format the Y-axis labels to show Item Index, Weight, and Value
     y_labels: list[str] = [
         f"#{i} (w:{w}, v:{v})" 
         for i, (w, v) in enumerate(zip(result.problem.weights, result.problem.values))
@@ -286,62 +293,85 @@ def visualize_knapsack(result: 'DiscreteResult', dark_theme: bool = False) -> No
         shared_xaxes=True,
         vertical_spacing=0.08,
         subplot_titles=(
-            f"Algorithm Convergence ({result.algorithm}, Seed: {result.rng_seed})", 
-            "Item Selection Consensus Over Time (Exploration vs. Exploitation)"
+            f"{result.algorithm}; rngseed={result.rng_seed}", 
+            "Item selection probability"
         ),
-        row_heights=[0.4, 0.6]
+        row_heights=[0.3, 0.7] # Gave a bit more room to the heatmap to help with many items
     )
 
     # Top Plot: Convergence Lines
+    best_line_name = 'Best Value' if num_agents > 1 else 'Current Value'
+    best_line_width = 3 if iterations < smooth_transition_threshold else 1 
+    
     fig.add_trace(
         go.Scatter(
             x=list(range(iterations)), y=best_vals, 
-            mode='lines', name='Best Value in Swarm', 
-            line=dict(color='#2ecc71', width=3),
-            connectgaps=True # Ensures the line continues even if an iteration is fully NaN
+            mode='lines', name=best_line_name, 
+            line=dict(color='#2ecc71', width=best_line_width),
+            connectgaps=True 
         ),
         row=1, col=1
     )
-    fig.add_trace(
-        go.Scatter(
-            x=list(range(iterations)), y=avg_vals, 
-            mode='lines', name='Average Swarm Value', 
-            line=dict(color='#f39c12', width=2, dash='dash'),
-            connectgaps=True
-        ),
-        row=1, col=1
-    )
+    
+    # Add the Star Marker for the first best value
+    if first_best_idx != -1:
+        fig.add_trace(
+            go.Scatter(
+                x=[first_best_idx], 
+                y=[overall_best_val], 
+                mode='markers', 
+                name=f'First Best ({overall_best_val})', 
+                marker=dict(symbol='star', size=16, color='gold', line=dict(color='black', width=1)),
+                hovertemplate="Iteration: %{x}<br>Best Value: %{y}<extra></extra>"
+            ),
+            row=1, col=1
+        )
+    
+    # Only render the average line if there is actually a swarm
+    if num_agents > 1:
+        fig.add_trace(
+            go.Scatter(
+                x=list(range(iterations)), y=avg_vals, 
+                mode='lines', name='Average Value', 
+                line=dict(color='#f39c12', width=2, dash='dash'),
+                connectgaps=True
+            ),
+            row=1, col=1
+        )
 
     # Bottom Plot: Item Selection Heatmap
+    dynamic_xgap = 1 if iterations <= smooth_transition_threshold else 0 
+
     fig.add_trace(
         go.Heatmap(
             z=heatmap_data,
             x=list(range(iterations)),
             y=y_labels,
             colorscale=heatmap_colorscale, 
-            zmin=0, zmax=1,      # Forces the color scale to stay locked between 0% and 100%
-            xgap=1,              # Adds a distinct line between iterations
-            ygap=1,              # Adds a distinct line between items
+            zmin=0, zmax=1,      
+            xgap=dynamic_xgap,   
+            ygap=1,              
             colorbar=dict(title="Selection Rate", x=1.02),
             hovertemplate="Iteration: %{x}<br>%{y}<br>Selected by: %{z:.1%}<extra></extra>"
         ),
         row=2, col=1
     )
 
-    # --- 4. Layout Adjustments ---
+    # --- 4. Layout Adjustments (Dynamic Height implemented here) ---
+    # Assign at least 20 pixels of height per item so they are never squished, plus 400px for the top chart.
+    dynamic_height = max(800, 400 + (num_items * 20))
+
     fig.update_layout(
-        height=850, # Slightly taller to make room for all 40 item labels
-        title_text=f"Knapsack Metaheuristic Analysis (Run Time: {result.time:.2f}ms)",
+        height=dynamic_height, 
+        title_text=f"Convergence: Knapsack(capacity={result.problem.capacity}); runtime={result.time:.2f}ms",
         template=plotly_template,
         hovermode="x unified", 
         showlegend=True,
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        margin=dict(l=150) # Adds padding on the left so the "Item (w: X, v: Y)" labels aren't cut off
+        margin=dict(l=150) 
     )
 
     fig.update_yaxes(title_text="Objective Value", row=1, col=1)
-    
-    # Optional: Reverse the Y-axis so Item 0 is at the top of the heatmap
     fig.update_yaxes(autorange="reversed", row=2, col=1) 
     fig.update_xaxes(title_text="Iteration", row=2, col=1)
 
