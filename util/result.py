@@ -174,5 +174,5 @@ History:
         return pickle.dumps(self)
     
     @staticmethod
-    def from_binary(binary_data: bytes) -> 'ContinuousResult':
+    def from_binary(binary_data: bytes) -> 'DiscreteResult':
         return pickle.loads(binary_data)

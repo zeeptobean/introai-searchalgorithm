@@ -1,7 +1,10 @@
 import numpy as np
 import plotly.graph_objects as go
-from util.result import ContinuousResult
+from plotly.subplots import make_subplots
+from function.discrete_function import KnapsackFunction
+from util.result import ContinuousResult, DiscreteResult
 from util.define import *
+from util.util import *
 
 class ContinuousResultVisualizer:
     """Visualize continuous optimization results with interactive Plotly 3D/2D plots."""
@@ -226,3 +229,118 @@ def visualize_result(result: ContinuousResult, method: str = '3d',
     # Plotly's show() will automatically open a tab in your default web browser
     fig.show()
     return fig
+
+def visualize_knapsack(result: 'DiscreteResult', dark_theme: bool = False) -> None:
+    history = result.history
+    iterations: int = len(history.history_x)
+    
+    if not isinstance(result.problem, KnapsackFunction):
+        raise TypeError(f"Expected KnapsackFunction, got {type(result.problem)}")
+    if iterations == 0:
+        print("No history data to visualize.")
+        return
+
+    num_agents: int = len(history.history_x[0])
+    num_items: int = len(history.history_x[0][0])
+
+    # --- 0. Theme Configuration ---
+    plotly_template: str = "plotly_dark" if dark_theme else "plotly_white"
+    heatmap_colorscale: str = "Plasma" if dark_theme else "Viridis"
+
+    # --- 1. Process Convergence Data (Fixing the "gap") ---
+    best_vals: list[float] = []
+    avg_vals: list[float] = []
+    
+    for gen in history.history_value:
+        # Filter out extreme penalties (e.g., massive negative numbers for overweight knapsacks)
+        valid_fitnesses: list[float] = [float(v) for v in gen if v is not None and float(v) > -1e6] 
+        
+        if valid_fitnesses:
+            best_vals.append(max(valid_fitnesses))
+            avg_vals.append(float(np.mean(valid_fitnesses)))
+        else:
+            best_vals.append(np.nan)
+            avg_vals.append(np.nan)
+
+    # --- 2. Process Heatmap Data & Labels ---
+    heatmap_data: np.ndarray = np.zeros((num_items, iterations))
+    for t in range(iterations):
+        gen_x_array: np.ndarray = np.array(history.history_x[t])
+        heatmap_data[:, t] = np.mean(gen_x_array, axis=0)
+
+    # Type guard / Cast to ensure we are dealing with a Knapsack problem with weights/values
+    if not hasattr(result.problem, 'weights') or not hasattr(result.problem, 'values'):
+        raise TypeError("result.problem must be of type KnapsackFunction with defined weights and values.")
+    
+    # Format the Y-axis labels to show Item Index, Weight, and Value
+    y_labels: list[str] = [
+        f"#{i} (w:{w}, v:{v})" 
+        for i, (w, v) in enumerate(zip(result.problem.weights, result.problem.values))
+    ]
+
+    # --- 3. Build the Plotly Figure ---
+    fig = make_subplots(
+        rows=2, cols=1, 
+        shared_xaxes=True,
+        vertical_spacing=0.08,
+        subplot_titles=(
+            f"Algorithm Convergence ({result.algorithm}, Seed: {result.rng_seed})", 
+            "Item Selection Consensus Over Time (Exploration vs. Exploitation)"
+        ),
+        row_heights=[0.4, 0.6]
+    )
+
+    # Top Plot: Convergence Lines
+    fig.add_trace(
+        go.Scatter(
+            x=list(range(iterations)), y=best_vals, 
+            mode='lines', name='Best Value in Swarm', 
+            line=dict(color='#2ecc71', width=3),
+            connectgaps=True # Ensures the line continues even if an iteration is fully NaN
+        ),
+        row=1, col=1
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=list(range(iterations)), y=avg_vals, 
+            mode='lines', name='Average Swarm Value', 
+            line=dict(color='#f39c12', width=2, dash='dash'),
+            connectgaps=True
+        ),
+        row=1, col=1
+    )
+
+    # Bottom Plot: Item Selection Heatmap
+    fig.add_trace(
+        go.Heatmap(
+            z=heatmap_data,
+            x=list(range(iterations)),
+            y=y_labels,
+            colorscale=heatmap_colorscale, 
+            zmin=0, zmax=1,      # Forces the color scale to stay locked between 0% and 100%
+            xgap=1,              # Adds a distinct line between iterations
+            ygap=1,              # Adds a distinct line between items
+            colorbar=dict(title="Selection Rate", x=1.02),
+            hovertemplate="Iteration: %{x}<br>%{y}<br>Selected by: %{z:.1%}<extra></extra>"
+        ),
+        row=2, col=1
+    )
+
+    # --- 4. Layout Adjustments ---
+    fig.update_layout(
+        height=850, # Slightly taller to make room for all 40 item labels
+        title_text=f"Knapsack Metaheuristic Analysis (Run Time: {result.time:.2f}ms)",
+        template=plotly_template,
+        hovermode="x unified", 
+        showlegend=True,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        margin=dict(l=150) # Adds padding on the left so the "Item (w: X, v: Y)" labels aren't cut off
+    )
+
+    fig.update_yaxes(title_text="Objective Value", row=1, col=1)
+    
+    # Optional: Reverse the Y-axis so Item 0 is at the top of the heatmap
+    fig.update_yaxes(autorange="reversed", row=2, col=1) 
+    fig.update_xaxes(title_text="Iteration", row=2, col=1)
+
+    fig.show()
