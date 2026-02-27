@@ -183,15 +183,24 @@ class GraphColoringFunction(DiscreteProblem):
 
     @staticmethod
     def from_adjlist(adjacency_list: dict[int, list[int]]) -> 'GraphColoringFunction':
+        """
+        Node index start at 1 
+        """
         dimension = 0
         for i, neighbors in adjacency_list.items():
+            if i <= 0:
+                raise ValueError(f"Node index must be positive integer, got {i}")
+            dimension = max(dimension, i)
             for neighbor in neighbors:
+                if neighbor <= 0:
+                    raise ValueError(f"Node index must be positive integer, got {neighbor}")
                 dimension = max(dimension, neighbor)
+        dimension = dimension
         adjacency_matrix = np.zeros((dimension, dimension), dtype=int)
         for i, neighbors in adjacency_list.items():
             for neighbor in neighbors:
-                adjacency_matrix[i, neighbor] = 1
-                adjacency_matrix[neighbor, i] = 1
+                adjacency_matrix[i-1, neighbor-1] = 1
+                adjacency_matrix[neighbor-1, i-1] = 1
         return GraphColoringFunction(dimension=dimension, adjacency_matrix=adjacency_matrix)
 
     @staticmethod

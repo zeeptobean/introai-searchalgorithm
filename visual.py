@@ -1,7 +1,9 @@
 import numpy as np
+import networkx as nx
 import plotly.graph_objects as go
+import plotly.colors as pc
 from plotly.subplots import make_subplots
-from function.discrete_function import KnapsackFunction
+from function.discrete_function import *
 from util.result import ContinuousResult, DiscreteResult
 from util.define import *
 from util.util import *
@@ -342,5 +344,89 @@ def visualize_knapsack(result: 'DiscreteResult', dark_theme: bool = False) -> No
     # Optional: Reverse the Y-axis so Item 0 is at the top of the heatmap
     fig.update_yaxes(autorange="reversed", row=2, col=1) 
     fig.update_xaxes(title_text="Iteration", row=2, col=1)
+
+    fig.show()
+
+def visualize_graph_coloring(result: DiscreteResult) -> None:
+    """
+    Visualizes the result of a graph coloring optimization.
+    """
+    # 1. Ensure the problem contains an adjacency matrix
+    if not isinstance(result.problem, GraphColoringFunction):
+        raise TypeError("Result problem must be an instance of GraphColoringFunction to visualize.")
+
+    adj_matrix = result.problem.adjacency_matrix
+    
+    # 2. Build the NetworkX graph and calculate layout
+    G = nx.from_numpy_array(adj_matrix)
+    
+    # Use the RNG seed from the result to keep the layout reproducible
+    pos = nx.spring_layout(G, seed=result.rng_seed, k=0.5, iterations=50) 
+
+    # 3. Create Edge Trace
+    edge_x: list[float | None] = []
+    edge_y: list[float | None] = []
+    
+    for edge in G.edges():
+        x0, y0 = pos[edge[0]]
+        x1, y1 = pos[edge[1]]
+        edge_x.extend([x0, x1, None])
+        edge_y.extend([y0, y1, None])
+
+    edge_trace = go.Scatter(
+        x=edge_x, y=edge_y,
+        line=dict(width=1.5, color='#888'),
+        hoverinfo='none',
+        mode='lines'
+    )
+
+    # 4. Create Node Trace
+    node_x: list[float] = []
+    node_y: list[float] = []
+    
+    for node in G.nodes():
+        x, y = pos[node]
+        node_x.append(x)
+        node_y.append(y)
+
+    # Map best_x (color indices) to a discrete qualitative palette
+    color_indices = result.best_x.astype(int)
+    palette = pc.qualitative.Plotly  # Built-in Plotly distinct colors
+    node_colors = [palette[idx % len(palette)] for idx in color_indices]
+    
+    hover_texts = [f"Node {node}<br>Color Index: {color_indices[node]}" for node in G.nodes()]
+
+    node_trace = go.Scatter(
+        x=node_x, y=node_y,
+        mode='markers+text',
+        hoverinfo='text',
+        hovertext=hover_texts,
+        text=[str(node+1) for node in G.nodes()],
+        textposition="middle center",
+        textfont=dict(color='white', size=10),
+        marker=dict(
+            showscale=False,
+            color=node_colors,
+            size=35,
+            line=dict(width=2, color='DarkSlateGrey')
+        )
+    )
+
+    # 5. Compile the Figure
+    fig = go.Figure(
+        data=[edge_trace, node_trace],
+        layout=go.Layout(
+            title=dict(
+                text=f'Graph Coloring Solution<br><sup>Total Colors Used: {int(result.best_value)}</sup>',
+                font=dict(size=20)
+            ),
+            showlegend=False,
+            hovermode='closest',
+            margin=dict(b=20, l=20, r=20, t=60),
+            xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+            yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+            plot_bgcolor='white'
+        )
+    )
 
     fig.show()
