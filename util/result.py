@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from util.define import *
+from util.util import HistoryEntry
 import pickle
 import function.continuous_function as contfunc
 import function.discrete_function as discfunc
@@ -9,7 +10,6 @@ class _Result:
     type: str
     algorithm: str
     iterations: int
-    history_info: list[str | None]     # additional info for each iteration
     rng_seed: int
     time: float
 
@@ -23,6 +23,7 @@ class ContinuousResult(_Result):
     best_value: Float
     history_x: list[list[FloatVector]]  # history for each x for each iteration
     history_value: list[list[Float]]
+    history_info: list[str | None]     # additional info for each iteration
 
     def __post_init__(self):
         if not (len(self.history_x) == len(self.history_value) and len(self.history_x) == len(self.history_info)):
@@ -126,12 +127,7 @@ class DiscreteResult(_Result):
     last_value: list[Float]
     best_x: FloatVector         # the best
     best_value: Float
-    history_x: list[list[FloatVector]] | list[list[IntVector]]  # history for each x for each iteration
-    history_value: list[list[Float]] | list[list[int]]
-
-    def __post_init__(self):
-        if not (len(self.history_x) == len(self.history_value) and len(self.history_x) == len(self.history_info)):
-            raise ValueError("len(history_x) == len(history_value) == len(history_info) is false")
+    history: HistoryEntry
 
     def _format_element(self, v: Float | int) -> str:
         if isinstance(v, int):
@@ -150,14 +146,14 @@ class DiscreteResult(_Result):
     
     def __repr__(self) -> str:
         format_history_value = []
-        for ele in self.history_value:
+        for ele in self.history.history_value:
             format_history_value.append(self._format_list(ele))
         format_history_x = []
-        for ele in self.history_x:
+        for ele in self.history.history_x:
             format_history_x.append(self._format_vector_element_list(ele))
 
         history_str = ""
-        for i, (x, val, info) in enumerate(zip(format_history_x, format_history_value, self.history_info)):
+        for i, (x, val, info) in enumerate(zip(format_history_x, format_history_value, self.history.history_info)):
             info_str = f"info = {info};" if info else ""
             history_str += f"Ite {i}: x = {x}; value = {val}; {info_str}\n"
 

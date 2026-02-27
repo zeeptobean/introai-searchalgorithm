@@ -26,6 +26,14 @@ class DiscreteProblem:
             "dimension": self.dimension,
         }
     
+    def is_max_value_problem(self) -> bool:
+        """
+        Flag to indicate whether this is a min cost problem (like TSP) or max value problem (like Knapsack).
+        By default, we assume it's a min cost problem and return False.
+        Max value problems will return its best value as negative, this flag is used to flip to sign back on result
+        """
+        return False
+    
     def random_solution(self, rng: RNGWrapper) -> FloatVector:
         """Generate a random solution within the bounds"""
         return self.random_solution_function(rng)
@@ -117,6 +125,13 @@ class KnapsackFunction(DiscreteProblem):
             "values": self.values.tolist(),
             "capacity": self.capacity
         }
+
+    @override
+    def is_max_value_problem(self) -> bool:
+        """
+        Knapsack is max value problem
+        """
+        return True
 
     def knapsack_objective(self, selection: FloatVector) -> Float:
         """Calculate the total value of the given selection"""

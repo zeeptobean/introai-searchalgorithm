@@ -99,8 +99,8 @@ def differential_evolution_discrete(
     population: list[FloatVector] = [problem.random_solution(rng_wrapper) for _ in range(population_size)]
     fitness = np.array([problem.evaluate(x) for x in population])
 
-    history_x: list[list[FloatVector]] = [[x.copy() for x in population]]
-    history_value: list[list[Float]] = [list(fitness)]
+    history = HistoryEntry(is_max_value_problem=problem.is_max_value_problem())
+    history.add([x.copy() for x in population], list(fitness))
 
     for _ in range(generation):
         for i in range(population_size):
@@ -141,13 +141,11 @@ def differential_evolution_discrete(
                 population[i] = trial
                 fitness[i] = trial_fitness
                 
-        history_x.append([x.copy() for x in population])
-        history_value.append(list(fitness))
+        history.add([x.copy() for x in population], list(fitness))
 
     total_time = timer.stop()
 
-    history_info: list[str | None] = [None] * len(history_x)
-    best_x, best_value = get_min_2d(history_x, history_value)
+    best_x, best_value = history.get_best_value()
 
     return DiscreteResult(
         algorithm="Differential Evolution",
@@ -159,7 +157,5 @@ def differential_evolution_discrete(
         best_value=best_value,
         iterations=generation,
         rng_seed=rng_wrapper.get_seed(),
-        history_x=history_x,
-        history_value=history_value,
-        history_info=history_info
+        history=history
     )

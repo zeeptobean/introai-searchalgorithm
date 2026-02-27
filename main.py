@@ -48,14 +48,18 @@ adjacency_matrix = np.array([
     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
     [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0]
 ])
-problem = discfunc.GraphColoringFunction(
-    adjacency_matrix=adjacency_matrix
+problem = discfunc.KnapsackFunction(
+    weights=np.array([10, 20, 30, 40, 50]),
+    values=np.array([60, 100, 120, 240, 300]),
+    capacity=100,
+    dimension=5
 )
+# problem = discfunc.GraphColoringFunction(adjacency_matrix=adjacency_matrix, dimension=20)
 # result = simulated_annealing_continuous(problem, rng_seed=42, step_bound=0.5, temp=100.0, cooling_rate=0.99)
 # result = differential_evolution_continuous(problem, rng_seed=42, population_size=60, generation=1500)
 # result = differential_evolution_continuous(problem, rng_seed=42, generation=10)
 result = differential_evolution_discrete(problem, rng_seed=42, population_size=20, generation=50, mutation_factor=1, crossover_rate=0.7)
-# result = simulated_annealing_discrete(problem, rng_seed=42, temp=100.0, cooling_rate=0.99, step_bound=1.0, max_iteration=10000)
+# result = simulated_annealing_discrete(problem, rng_seed=42, temp=100.0, cooling_rate=0.99, step_bound=2, max_iteration=10000)
 # result = genetic_algorithm_discrete(
 #     problem, 
 #     rng_seed=42, 

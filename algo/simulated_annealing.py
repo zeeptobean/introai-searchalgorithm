@@ -147,9 +147,8 @@ def simulated_annealing_discrete(
     current_x = problem.random_solution(rng)
     current_energy = problem.evaluate(current_x)
 
-    history_x: list[list[FloatVector]] = [[current_x]]
-    history_value: list[list[Float]] = [[current_energy]]
-    history_info: list[str | None] = [f"temp: {temp:.4f}, delta: None"]
+    history = HistoryEntry(problem.is_max_value_problem())
+    history.add([current_x], [current_energy], f"temp: {temp:.4f}, delta: None")
 
     iteration = 1
     while temp > min_temp and iteration <= max_iteration:
@@ -159,22 +158,20 @@ def simulated_annealing_discrete(
 
         delta = current_energy - next_energy #minimizing energy => delta > 0 is better 
 
-        history_x.append([next_x])
-        history_value.append([next_energy])
-
         if delta > 0 or rng.random() < np.exp(delta / temp):
-            history_info.append(f"temp: {temp:.4f}, delta: {delta:.4f} (accepted)")
+            infostr = f"temp: {temp:.4f}, delta: {delta:.4f} (accepted)"
             current_x = next_x
             current_energy = next_energy
         else:
-            history_info.append(f"temp: {temp:.4f}, delta: {delta:.4f} (rejected)")
+            infostr = f"temp: {temp:.4f}, delta: {delta:.4f} (rejected)"
+        history.add([next_x], [next_energy], infostr)
 
         temp *= cooling_rate
         iteration += 1
 
     total_time = timer.stop()
 
-    best_x, best_value = get_min_2d(history_x, history_value)
+    best_x, best_value = history.get_best_value()
 
     return DiscreteResult(
         algorithm="Simulated Annealing (geometric cooling)",
@@ -186,9 +183,7 @@ def simulated_annealing_discrete(
         time=total_time,
         iterations=iteration,
         rng_seed=rng.get_seed(),
-        history_x=history_x,
-        history_value=history_value,
-        history_info=history_info
+        history=history
     )
 
 """
@@ -208,9 +203,8 @@ def simulated_annealing_linear_discrete(
     current_x = problem.random_solution(rng)
     current_energy = problem.evaluate(current_x)
 
-    history_x: list[list[FloatVector]] = [[current_x]]
-    history_value: list[list[Float]] = [[current_energy]]
-    history_info: list[str | None] = [f"temp: {max_temp:.4f}, delta: None"]
+    history = HistoryEntry(problem.is_max_value_problem())
+    history.add([current_x], [current_energy], f"temp: {max_temp:.4f}, delta: None")
 
     iteration = 0
     while iteration <= max_iteration:
@@ -221,32 +215,28 @@ def simulated_annealing_linear_discrete(
         next_energy = problem.evaluate(next_x)
         delta = current_energy - next_energy
 
-        history_x.append([next_x])
-        history_value.append([next_energy])
-
         if delta > 0 or rng.random() < np.exp(delta / temp):
-            history_info.append(f"temp: {temp:.4f}, delta: {delta:.4f} (accepted)")
+            infostr = f"temp: {temp:.4f}, delta: {delta:.4f} (accepted)"
             current_x = next_x
             current_energy = next_energy
         else:
-            history_info.append(f"temp: {temp:.4f}, delta: {delta:.4f} (rejected)")
+            infostr = f"temp: {temp:.4f}, delta: {delta:.4f} (rejected)"
+        history.add([next_x], [next_energy], infostr)
 
         iteration += 1
     total_time = timer.stop()
 
-    best_x, best_value = get_min_2d(history_x, history_value)
+    best_x, best_value = history.get_best_value()
 
     return DiscreteResult(
         algorithm="Simulated Annealing (linear cooling)",
         problem=problem,
         last_x=[current_x],
-        last_value=[current_energy],
+        last_value=[current_energy if problem.is_max_value_problem() else -current_energy],
         best_x=best_x,
-        best_value=best_value,
+        best_value=best_value if problem.is_max_value_problem() else -best_value,
         time=total_time,
         iterations=iteration,
         rng_seed=rng.get_seed(),
-        history_x=history_x,
-        history_value=history_value,
-        history_info=history_info
+        history=history
     )
