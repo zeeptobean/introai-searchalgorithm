@@ -139,6 +139,7 @@ def simulated_annealing_discrete(
     max_iteration: int = 10000, 
     rng_seed: int | None = None
 ) -> DiscreteResult:
+    original_temp = temp
     rng = RNGWrapper(rng_seed)
 
     timer = TimerWrapper()
@@ -174,7 +175,7 @@ def simulated_annealing_discrete(
     best_x, best_value = history.get_best_value()
 
     return DiscreteResult(
-        algorithm="Simulated Annealing (geometric cooling)",
+        algorithm=f"Simulated Annealing (geometric-cooling, temp={original_temp:.4f}, min_temp={min_temp:.4f}, cooling_rate={cooling_rate:.4f})",
         problem=problem,
         last_x=[current_x],
         last_value=[current_energy],
@@ -229,7 +230,7 @@ def simulated_annealing_linear_discrete(
     best_x, best_value = history.get_best_value()
 
     return DiscreteResult(
-        algorithm="Simulated Annealing (linear cooling)",
+        algorithm=f"Simulated Annealing (linear-cooling, max_temp={max_temp:.4f}, max_iteration={max_iteration})",
         problem=problem,
         last_x=[current_x],
         last_value=[current_energy if problem.is_max_value_problem() else -current_energy],
