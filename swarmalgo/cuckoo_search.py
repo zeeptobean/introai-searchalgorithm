@@ -48,14 +48,15 @@ def cuckoo_search_continuous(
     lower_bound = problem.lower_bound if problem.lower_bound is not None else -100
     upper_bound = problem.upper_bound if problem.upper_bound is not None else 100
 
+    history = HistoryEntry()
+
     timer = TimerWrapper()
     timer.start()
 
     nests: list[FloatVector] = [rng_wrapper.uniform(lower_bound, upper_bound, size=problem.dimension) for _ in range(population_size)]
     fitness = np.array([problem.evaluate(x) for x in nests])
 
-    history_x: list[list[FloatVector]] = [[x.copy() for x in nests]]
-    history_value: list[list[Float]] = [list(fitness)]
+    history.add([x.copy() for x in nests], list(fitness))
 
     for _ in range(generation):
         # Generate new solutions (cuckoos) via Lévy flights
@@ -81,13 +82,11 @@ def cuckoo_search_continuous(
             nests[k] = rng_wrapper.uniform(lower_bound, upper_bound, size=problem.dimension)
             fitness[k] = problem.evaluate(nests[k])
 
-        history_x.append([x.copy() for x in nests])
-        history_value.append(list(fitness))
+        history.add([x.copy() for x in nests], list(fitness))
 
     total_time = timer.stop()
 
-    history_info: list[str | None] = [None] * len(history_x)
-    best_x, best_value = get_min_2d(history_x, history_value)
+    best_x, best_value = history.get_best_value()
 
     return ContinuousResult(
         algorithm="Cuckoo Search",
@@ -99,9 +98,7 @@ def cuckoo_search_continuous(
         best_value=best_value,
         iterations=generation,
         rng_seed=rng_wrapper.get_seed(),
-        history_x=history_x,
-        history_value=history_value,
-        history_info=history_info
+        history=history
     )
 
 def cuckoo_search_discrete(
@@ -155,8 +152,9 @@ def cuckoo_search_discrete(
     is_permutation = (len(np.unique(nests[0])) == len(nests[0]) and 
                         np.allclose(np.sort(nests[0]), np.arange(len(nests[0]))))
 
-    history_x: list[list[FloatVector]] = [[x.copy() for x in nests]]
-    history_value: list[list[Float]] = [list(fitness)]
+    history = HistoryEntry(is_max_value_problem=problem.is_max_value_problem())
+
+    history.add([x.copy() for x in nests], list(fitness))
 
     for gen in range(generation):
         for i in range(population_size):
@@ -192,13 +190,11 @@ def cuckoo_search_discrete(
             
             fitness[k] = problem.evaluate(nests[k])
 
-        history_x.append([x.copy() for x in nests])
-        history_value.append(list(fitness))
+        history.add([x.copy() for x in nests], list(fitness))
 
     total_time = timer.stop()
 
-    history_info: list[str | None] = [None] * len(history_x)
-    best_x, best_value = get_min_2d(history_x, history_value)
+    best_x, best_value = history.get_best_value()
 
     return DiscreteResult(
         algorithm="Cuckoo Search",
@@ -210,7 +206,5 @@ def cuckoo_search_discrete(
         best_value=best_value,
         iterations=generation,
         rng_seed=rng_wrapper.get_seed(),
-        history_x=history_x,
-        history_value=history_value,
-        history_info=history_info
+        history=history
     )

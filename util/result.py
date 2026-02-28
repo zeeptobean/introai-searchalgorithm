@@ -6,28 +6,41 @@ import function.continuous_function as contfunc
 import function.discrete_function as discfunc
 
 @dataclass
-class _Result:
+class Result:
     type: str
     algorithm: str
     iterations: int
     rng_seed: int
     time: float
-
-@dataclass 
-class ContinuousResult(_Result):
-    type: str = field(init=False, default="continuous")
-    problem: contfunc.ContinuousProblem
     last_x: list[FloatVector]   # x state of the last iteration
     last_value: list[Float]
     best_x: FloatVector         # the best
     best_value: Float
-    history_x: list[list[FloatVector]]  # history for each x for each iteration
-    history_value: list[list[Float]]
-    history_info: list[str | None]     # additional info for each iteration
+    history: HistoryEntry
+
+    def _format_element(self, v: Float | int) -> str:
+        if isinstance(v, int):
+            return str(v)
+        return f"{float(v):.9f}"
+    def _format_list(self, fl: list[Float] | list[int]) -> str:
+        arr = [self._format_element(v) for v in fl]
+        return "[" + ", ".join(arr) + "]"
+    def _format_vector_element(self, fv: FloatVector | IntVector) -> str:
+        return "(" + ", ".join(self._format_element(x) for x in fv) + ")"
+    def _format_vector_element_list(self, fl: list[FloatVector] | list[IntVector]) -> str:
+        result: list[str] = []
+        for v in fl:
+            result.append(self._format_vector_element(v))
+        return "[" + " , ".join(result) + "]"
 
     def __post_init__(self):
-        if not (len(self.history_x) == len(self.history_value) and len(self.history_x) == len(self.history_info)):
+        if not (len(self.history.history_x) == len(self.history.history_value) and len(self.history.history_x) == len(self.history.history_info)):
             raise ValueError("len(history_x) == len(history_value) == len(history_info) is false")
+
+@dataclass 
+class ContinuousResult(Result):
+    type: str = field(init=False, default="continuous")
+    problem: contfunc.ContinuousProblem
 
     def _format_float(self, v: Float) -> str:
         return f"{float(v):.9f}"
@@ -44,14 +57,14 @@ class ContinuousResult(_Result):
     
     def __repr__(self) -> str:
         format_history_value = []
-        for ele in self.history_value:
+        for ele in self.history.history_value:
             format_history_value.append(self._format_npfloat_list(ele))
         format_history_x = []
-        for ele in self.history_x:
+        for ele in self.history.history_x:
             format_history_x.append(self._format_floatvector_list(ele))
 
         history_str = ""
-        for i, (x, val, info) in enumerate(zip(format_history_x, format_history_value, self.history_info)):
+        for i, (x, val, info) in enumerate(zip(format_history_x, format_history_value, self.history.history_info)):
             info_str = f"info = {info};" if info else ""
             history_str += f"Ite {i}: x = {x}; value = {val}; {info_str}\n"
 
@@ -84,9 +97,7 @@ History:
         remdict = {
             "last_x": [x.tolist() for x in self.last_x],
             "last_value": [float(v) for v in self.last_value],
-            "history_x": [[x.tolist() for x in hist_x] for hist_x in self.history_x],
-            "history_value": [[float(v) for v in hist_val] for hist_val in self.history_value],
-            "history_info": self.history_info
+            "history": self.history.to_json()
         }
         return self.to_json_simple() | remdict
     
@@ -108,9 +119,7 @@ History:
             best_value=json_dict["best_value"],
             last_x=[np.array(x) for x in json_dict["last_x"]],
             last_value=[float(v) for v in json_dict["last_value"]],
-            history_x=[[np.array(x) for x in hist_x] for hist_x in json_dict["history_x"]],
-            history_value=[[float(v) for v in hist_val] for hist_val in json_dict["history_value"]],
-            history_info=json_dict["history_info"]
+            history=HistoryEntry.from_json(json_dict["history"]),
         )
     
     @staticmethod
@@ -120,29 +129,9 @@ History:
     
 
 @dataclass
-class DiscreteResult(_Result):
+class DiscreteResult(Result):
     type: str = field(init=False, default="discrete")
     problem: discfunc.DiscreteProblem
-    last_x: list[FloatVector]   # x state of the last iteration
-    last_value: list[Float]
-    best_x: FloatVector         # the best
-    best_value: Float
-    history: HistoryEntry
-
-    def _format_element(self, v: Float | int) -> str:
-        if isinstance(v, int):
-            return str(v)
-        return f"{float(v):.9f}"
-    def _format_list(self, fl: list[Float] | list[int]) -> str:
-        arr = [self._format_element(v) for v in fl]
-        return "[" + ", ".join(arr) + "]"
-    def _format_vector_element(self, fv: FloatVector | IntVector) -> str:
-        return "(" + ", ".join(self._format_element(x) for x in fv) + ")"
-    def _format_vector_element_list(self, fl: list[FloatVector] | list[IntVector]) -> str:
-        result: list[str] = []
-        for v in fl:
-            result.append(self._format_vector_element(v))
-        return "[" + " , ".join(result) + "]"
     
     def __repr__(self) -> str:
         format_history_value = []

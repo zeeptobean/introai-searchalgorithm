@@ -25,6 +25,8 @@ def differential_evolution_continuous(
     lower_bound = problem.lower_bound if problem.lower_bound is not None else -100
     upper_bound = problem.upper_bound if problem.upper_bound is not None else 100
 
+    history = HistoryEntry()
+
     timer = TimerWrapper()
     timer.start()
 
@@ -33,6 +35,7 @@ def differential_evolution_continuous(
 
     history_x: list[list[FloatVector]] = [[x.copy() for x in population]]
     history_value: list[list[Float]] = [list(fitness)]
+    history.add([x.copy() for x in population], list(fitness))
 
     for _ in range(generation):
         for i in range(population_size):
@@ -51,12 +54,10 @@ def differential_evolution_continuous(
             if trial_fitness < fitness[i]:  # Minimizing fitness
                 population[i] = trial
                 fitness[i] = trial_fitness
-        history_x.append([x.copy() for x in population])
-        history_value.append(list(fitness))
+        history.add([x.copy() for x in population], list(fitness))
     total_time = timer.stop()
 
-    history_info: list[str | None] = [None] * len(history_x)
-    best_x, best_value = get_min_2d(history_x, history_value)
+    best_x, best_value = history.get_best_value()
 
     return ContinuousResult(
         algorithm="Differential Evolution",
@@ -68,9 +69,7 @@ def differential_evolution_continuous(
         best_value=best_value,
         iterations=generation,
         rng_seed=rng_wrapper.get_seed(),
-        history_x=history_x,
-        history_value=history_value,
-        history_info=history_info
+        history=history
     )
 
 

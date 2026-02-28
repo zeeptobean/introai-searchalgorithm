@@ -31,6 +31,21 @@ class HistoryEntry:
         row, col = np.unravel_index(np.argmin(val_array), val_array.shape)
         min_x = self.history_x[row][col]
         return min_x, min_val
+    
+    def to_json(self) -> dict:
+        return {
+            "history_x": [[x.tolist() for x in hist_x] for hist_x in self.history_x],
+            "history_value": [[float(v) for v in hist_val] for hist_val in self.history_value],
+            "history_info": self.history_info
+        }
+    
+    @staticmethod
+    def from_json(json_dict: dict) -> 'HistoryEntry':
+        history = HistoryEntry()
+        history.history_x = [[np.array(x) for x in hist_x] for hist_x in json_dict["history_x"]]
+        history.history_value = [[float(v) for v in hist_val] for hist_val in json_dict["history_value"]]
+        history.history_info = json_dict["history_info"]
+        return history
 
 def get_min_2d_impl2(x_arr: list[list[FloatVector]], value_arr: list[list[Float]]) -> tuple[FloatVector, Float]:
     row, col = 0, 0

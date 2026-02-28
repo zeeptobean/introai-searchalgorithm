@@ -20,6 +20,8 @@ def tlbo_continuous(
     lower_bound = problem.lower_bound if problem.lower_bound is not None else -100
     upper_bound = problem.upper_bound if problem.upper_bound is not None else 100
 
+    history = HistoryEntry(is_max_value_problem=False)
+
     timer = TimerWrapper()
     timer.start()
 
@@ -27,8 +29,7 @@ def tlbo_continuous(
     population: list[FloatVector] = [rng_wrapper.uniform(lower_bound, upper_bound, size=problem.dimension) for _ in range(population_size)]
     fitness = np.array([problem.evaluate(p) for p in population])
 
-    history_x: list[list[FloatVector]] = [[p.copy() for p in population]]
-    history_value: list[list[Float]] = [list(fitness)]
+    history.add([p.copy() for p in population], list(fitness))
 
     for _ in range(generation):
         # Teacher phase
@@ -72,12 +73,10 @@ def tlbo_continuous(
                 population[i] = new_solution
                 fitness[i] = new_fitness
 
-        history_x.append([p.copy() for p in population])
-        history_value.append(list(fitness))
+        history.add([p.copy() for p in population], list(fitness))
 
     total_time = timer.stop()
-    history_info: list[str | None] = [None] * len(history_x)
-    best_x, best_value = get_min_2d(history_x, history_value)
+    best_x, best_value = history.get_best_value()
 
     return ContinuousResult(
         algorithm="Teaching-Learning-Based Optimization",
@@ -89,9 +88,7 @@ def tlbo_continuous(
         best_value=best_value,
         iterations=generation,
         rng_seed=rng_wrapper.get_seed(),
-        history_x=history_x,
-        history_value=history_value,
-        history_info=history_info
+        history=history
     )
 
 def tlbo_discrete(
@@ -136,8 +133,9 @@ def tlbo_discrete(
     is_permutation = (len(np.unique(population[0])) == len(population[0]) and 
                         np.allclose(np.sort(population[0]), np.arange(len(population[0]))))
 
-    history_x: list[list[FloatVector]] = [[p.copy() for p in population]]
-    history_value: list[list[Float]] = [list(fitness)]
+    history = HistoryEntry(is_max_value_problem=problem.is_max_value_problem())
+
+    history.add([p.copy() for p in population], list(fitness))
 
     for gen in range(generation):
         teacher_idx = np.argmin(fitness)
@@ -209,12 +207,10 @@ def tlbo_discrete(
                 population[i] = new_solution
                 fitness[i] = new_fitness
 
-        history_x.append([p.copy() for p in population])
-        history_value.append(list(fitness))
+        history.add([p.copy() for p in population], list(fitness))
 
     total_time = timer.stop()
-    history_info: list[str | None] = [None] * len(history_x)
-    best_x, best_value = get_min_2d(history_x, history_value)
+    best_x, best_value = history.get_best_value()
 
     return DiscreteResult(
         algorithm="Teaching-Learning-Based Optimization",
@@ -226,7 +222,5 @@ def tlbo_discrete(
         best_value=best_value,
         iterations=generation,
         rng_seed=rng_wrapper.get_seed(),
-        history_x=history_x,
-        history_value=history_value,
-        history_info=history_info
+        history=history
     )

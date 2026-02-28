@@ -35,14 +35,15 @@ def firefly_continuous(
     lower_bound = problem.lower_bound if problem.lower_bound is not None else -100
     upper_bound = problem.upper_bound if problem.upper_bound is not None else 100
 
+    history = HistoryEntry()
+
     timer = TimerWrapper()
     timer.start()
 
     population: list[FloatVector] = [rng_wrapper.uniform(lower_bound, upper_bound, size=problem.dimension) for _ in range(population_size)]
     fitness = np.array([problem.evaluate(p) for p in population]) 
 
-    history_x: list[list[FloatVector]] = [[p.copy() for p in population]]
-    history_value: list[list[Float]] = [list(fitness)]
+    history.add([p.copy() for p in population], list(fitness))
 
     for _ in range(generation):
         for i in range(population_size):
@@ -79,12 +80,10 @@ def firefly_continuous(
             population[best_idx] = new_solution
             fitness[best_idx] = new_fitness
 
-        history_x.append([p.copy() for p in population])
-        history_value.append(list(fitness))
+        history.add([p.copy() for p in population], list(fitness))
 
     total_time = timer.stop()
-    history_info: list[str | None] = [None] * len(history_x)
-    best_x, best_value = get_min_2d(history_x, history_value)
+    best_x, best_value = history.get_best_value()
 
     return ContinuousResult(
         algorithm="Firefly Algorithm",
@@ -96,9 +95,7 @@ def firefly_continuous(
         best_value=best_value,
         iterations=generation,
         rng_seed=rng_wrapper.get_seed(),
-        history_x=history_x,
-        history_value=history_value,
-        history_info=history_info
+        history=history
     )
 
 def firefly_discrete(
@@ -139,8 +136,9 @@ def firefly_discrete(
     population: list[FloatVector] = [problem.random_solution(rng_wrapper) for _ in range(population_size)]
     fitness = np.array([problem.evaluate(p) for p in population])
 
-    history_x: list[list[FloatVector]] = [[p.copy() for p in population]]
-    history_value: list[list[Float]] = [list(fitness)]
+    history = HistoryEntry(is_max_value_problem=problem.is_max_value_problem())
+
+    history.add([p.copy() for p in population], list(fitness))
 
     is_permutation = (len(np.unique(population[0])) == len(population[0]) and 
                         np.allclose(np.sort(population[0]), np.arange(len(population[0]))))
@@ -187,12 +185,10 @@ def firefly_discrete(
                     population[i] = new_solution
                     fitness[i] = new_fitness
 
-        history_x.append([p.copy() for p in population])
-        history_value.append(list(fitness))
+        history.add([p.copy() for p in population], list(fitness))
 
     total_time = timer.stop()
-    history_info: list[str | None] = [None] * len(history_x)
-    best_x, best_value = get_min_2d(history_x, history_value)
+    best_x, best_value = history.get_best_value()
 
     return DiscreteResult(
         algorithm="Firefly Algorithm",
@@ -204,7 +200,5 @@ def firefly_discrete(
         best_value=best_value,
         iterations=generation,
         rng_seed=rng_wrapper.get_seed(),
-        history_x=history_x,
-        history_value=history_value,
-        history_info=history_info
+        history=history
     )

@@ -35,6 +35,8 @@ def abc_continuous(
     lower_bound = problem.lower_bound if problem.lower_bound is not None else -100
     upper_bound = problem.upper_bound if problem.upper_bound is not None else 100
 
+    history = HistoryEntry()
+
     timer = TimerWrapper()
     timer.start()
 
@@ -44,9 +46,7 @@ def abc_continuous(
     fitness = np.array([problem.evaluate(p) for p in population])
     trials = np.zeros(num_employed)
 
-    history_x: list[list[FloatVector]] = [[p.copy() for p in population]]
-    history_value: list[list[Float]] = [list(fitness)]
-    history_info: list[str | None] = [None] 
+    history.add([p.copy() for p in population], list(fitness))
 
     for _ in range(generation):
         # Employed Bee Phase 
@@ -117,12 +117,10 @@ def abc_continuous(
                 fitness[i] = problem.evaluate(population[i])
                 trials[i] = 0
 
-        history_x.append([p.copy() for p in population])
-        history_value.append(list(fitness))
-        history_info.append(f"prob: {probabilities}, trials: {trials}")
+        history.add([p.copy() for p in population], list(fitness), info=f"prob: {probabilities}, trials: {trials}")
 
     total_time = timer.stop()
-    best_x, best_value = get_min_2d(history_x, history_value)
+    best_x, best_value = history.get_best_value()
 
     return ContinuousResult(
         algorithm="Artificial Bee Colony",
@@ -134,9 +132,7 @@ def abc_continuous(
         best_value=best_value,
         iterations=generation,
         rng_seed=rng_wrapper.get_seed(),
-        history_x=history_x,
-        history_value=history_value,
-        history_info=history_info
+        history=history
     )
 
 def abc_discrete(
@@ -167,6 +163,8 @@ def abc_discrete(
 
     rng_wrapper = RNGWrapper(rng_seed)
 
+    history = HistoryEntry(is_max_value_problem=problem.is_max_value_problem())
+
     timer = TimerWrapper()
     timer.start()
 
@@ -176,9 +174,7 @@ def abc_discrete(
     fitness = np.array([problem.evaluate(p) for p in population])
     trials = np.zeros(num_employed)
 
-    history_x: list[list[FloatVector]] = [[p.copy() for p in population]]
-    history_value: list[list[Float]] = [list(fitness)]
-    history_info: list[str | None] = [None] 
+    history.add([p.copy() for p in population], list(fitness))
 
     for gen in range(generation):
         # Employed Bee Phase 
@@ -220,12 +216,10 @@ def abc_discrete(
                 fitness[i] = problem.evaluate(population[i])
                 trials[i] = 0
 
-        history_x.append([p.copy() for p in population])
-        history_value.append(list(fitness))
-        history_info.append(f"gen={gen+1}, trials={trials.tolist()}, abandoned={np.sum(trials > limit)}")
+        history.add([p.copy() for p in population], list(fitness), info=f"gen={gen+1}, trials={trials.tolist()}, abandoned={np.sum(trials > limit)}")
 
     total_time = timer.stop()
-    best_x, best_value = get_min_2d(history_x, history_value)
+    best_x, best_value = history.get_best_value()
 
     return DiscreteResult(
         algorithm="Artificial Bee Colony",
@@ -237,7 +231,5 @@ def abc_discrete(
         best_value=best_value,
         iterations=generation,
         rng_seed=rng_wrapper.get_seed(),
-        history_x=history_x,
-        history_value=history_value,
-        history_info=history_info
+        history=history
     )

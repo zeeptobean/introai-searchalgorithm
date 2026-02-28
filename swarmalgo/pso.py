@@ -35,6 +35,8 @@ def pso_continuous(
     lower_bound = problem.lower_bound if problem.lower_bound is not None else -100
     upper_bound = problem.upper_bound if problem.upper_bound is not None else 100
 
+    history = HistoryEntry()
+
     timer = TimerWrapper()
     timer.start()
 
@@ -51,9 +53,7 @@ def pso_continuous(
     global_best_position = population[global_best_idx].copy()
     global_best_fitness = fitness[global_best_idx]
 
-    history_x: list[list[FloatVector]] = [[p.copy() for p in population]]
-    history_value: list[list[Float]] = [list(fitness)]
-    history_info: list[str | None] = [None]
+    history.add([p.copy() for p in population], list(fitness))
 
     for _ in range(generation):
         for i in range(population_size):
@@ -80,9 +80,7 @@ def pso_continuous(
             global_best_fitness = fitness[current_best_idx]
             global_best_position = population[current_best_idx].copy()
 
-        history_x.append([p.copy() for p in population])
-        history_value.append(list(fitness))
-        history_info.append(f"Global best: {global_best_fitness:.4f} at {global_best_position}")
+        history.add([p.copy() for p in population], list(fitness), f"Global best: {global_best_fitness:.4f} at {global_best_position}")
 
     total_time = timer.stop()
 
@@ -96,9 +94,7 @@ def pso_continuous(
         best_value=global_best_fitness,
         iterations=generation,
         rng_seed=rng_wrapper.get_seed(),
-        history_x=history_x,
-        history_value=history_value,
-        history_info=history_info
+        history=history
     )
 
 def pso_discrete(
@@ -154,9 +150,9 @@ def pso_discrete(
     is_permutation = (len(np.unique(population[0])) == len(population[0]) and 
                         np.allclose(np.sort(population[0]), np.arange(len(population[0]))))
 
-    history_x: list[list[FloatVector]] = [[p.copy() for p in population]]
-    history_value: list[list[Float]] = [list(fitness)]
-    history_info: list[str | None] = [None]
+    history = HistoryEntry(is_max_value_problem=problem.is_max_value_problem())
+
+    history.add([p.copy() for p in population], list(fitness))
 
     for gen in range(generation):
         for i in range(population_size):
@@ -220,10 +216,7 @@ def pso_discrete(
             global_best_fitness = fitness[current_best_idx]
             global_best_position = population[current_best_idx].copy()
 
-        history_x.append([p.copy() for p in population])
-        history_value.append(list(fitness))
-        avg_velocity = np.mean(velocities)
-        history_info.append(f"gen={gen+1}, global_best={global_best_fitness:.4f}, avg_velocity={avg_velocity:.4f}")
+        history.add([p.copy() for p in population], list(fitness), f"gen={gen+1}, global_best={global_best_fitness:.4f}, avg_velocity={np.mean(velocities):.4f}")
 
     total_time = timer.stop()
 
@@ -237,7 +230,5 @@ def pso_discrete(
         best_value=global_best_fitness,
         iterations=generation,
         rng_seed=rng_wrapper.get_seed(),
-        history_x=history_x,
-        history_value=history_value,
-        history_info=history_info
+        history=history
     )

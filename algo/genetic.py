@@ -60,6 +60,8 @@ def genetic_algorithm_continuous(
     lower_bound = problem.lower_bound if problem.lower_bound is not None else -100
     upper_bound = problem.upper_bound if problem.upper_bound is not None else 100
 
+    history = HistoryEntry()
+
     timer = TimerWrapper()
     timer.start()
 
@@ -67,8 +69,7 @@ def genetic_algorithm_continuous(
     population: list[FloatVector] = [rng_wrapper.uniform(lower_bound, upper_bound, size=problem.dimension) for _ in range(population_size)]
     fitness = np.array([problem.evaluate(p) for p in population])
 
-    history_x: list[list[FloatVector]] = [[p.copy() for p in population]]
-    history_value: list[list[Float]] = [list(fitness)]
+    history.add([p.copy() for p in population], list(fitness))
 
     for _ in range(generation):
         # Selection
@@ -92,12 +93,10 @@ def genetic_algorithm_continuous(
         population = children
         fitness = np.array([problem.evaluate(p) for p in population])
 
-        history_x.append([p.copy() for p in population])
-        history_value.append(list(fitness))
+        history.add([p.copy() for p in population], list(fitness))
 
     total_time = timer.stop()
-    history_info: list[str | None] = [None] * len(history_x)
-    best_x, best_value = get_min_2d(history_x, history_value)
+    best_x, best_value = history.get_best_value()
 
     return ContinuousResult(
         algorithm="Genetic Algorithm",
@@ -109,9 +108,7 @@ def genetic_algorithm_continuous(
         best_value=best_value,
         iterations=generation,
         rng_seed=rng_wrapper.get_seed(),
-        history_x=history_x,
-        history_value=history_value,
-        history_info=history_info
+        history=history
     )
 
 
@@ -200,6 +197,8 @@ def genetic_algorithm_discrete(
         raise ValueError("tournament_k must be between 2 and population_size")
     
     rng_wrapper = RNGWrapper(rng_seed)
+
+    history = HistoryEntry(is_max_value_problem=problem.is_max_value_problem())
     
     timer = TimerWrapper()
     timer.start()
@@ -210,8 +209,7 @@ def genetic_algorithm_discrete(
     sample = population[0].astype(int)
     is_permutation = len(np.unique(sample)) == len(sample)
 
-    history_x: list[list[FloatVector]] = [[p.copy() for p in population]]
-    history_value: list[list[Float]] = [list(fitness)]
+    history.add([p.copy() for p in population], list(fitness))
 
     for _ in range(generation):
         # Selection - Tournament selection
@@ -242,12 +240,10 @@ def genetic_algorithm_discrete(
         population = children
         fitness = np.array([problem.evaluate(p) for p in population])
 
-        history_x.append([p.copy() for p in population])
-        history_value.append(list(fitness))
+        history.add([p.copy() for p in population], list(fitness))
 
     total_time = timer.stop()
-    history_info: list[str | None] = [None] * len(history_x)
-    best_x, best_value = get_min_2d(history_x, history_value)
+    best_x, best_value = history.get_best_value()
 
     return DiscreteResult(
         algorithm="Genetic Algorithm",
@@ -259,7 +255,5 @@ def genetic_algorithm_discrete(
         best_value=best_value,
         iterations=generation,
         rng_seed=rng_wrapper.get_seed(),
-        history_x=history_x,
-        history_value=history_value,
-        history_info=history_info
+        history=history
     )
