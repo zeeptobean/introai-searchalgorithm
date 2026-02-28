@@ -4,9 +4,12 @@ import numpy as np
 import networkx as nx
 import plotly.graph_objects as go
 import plotly.colors as pc
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 from plotly.subplots import make_subplots
+from IPython.display import display, HTML
 from function.discrete_function import *
-from util.result import ContinuousResult, DiscreteResult
+from util.result import *
 from util.define import *
 from util.util import *
 
@@ -81,158 +84,312 @@ class ContinuousResultVisualizer:
         )
         return fig
 
-    def visualize_2d(self, resolution: int = 100, animate: bool = True, 
-                     interval: int = 100, save_path: str | None = None):
+    def visualize_2d(self, 
+            canvas_size: tuple[float, float] = (10, 8),
+            mesh_resolution: int = 100,
+            interval: int = 100, 
+            dark_theme: bool = False, 
+            on_jupyter_notebook: bool = True, 
+            export_html: str | None = None, 
+            export_mp4: str | None = None):
+        """
+        Visualizes the optimization process in 2D contour plot
+        Args:
+            mesh_resolution: Number of points along each axis for the surface grid.
+            canvas_size: Width and height of the figure in inches.
+            interval: Time in milliseconds between animation frames.
+            dark_theme: Whether to use a dark theme
+            on_jupyter_notebook: Whether to display the animation in a Jupyter Notebook. Set to False to display in a separate window
+            export_html: If provided, saves the animation as an HTML file
+            export_mp4: If provided, saves the animation as an MP4 video file
+        """
+
         if self.problem.dimension != 2:
             raise ValueError("2D visualization requires dimension=2")
         
-        x, y, Z = self._create_mesh_grid(resolution)
+        # 1. Theme and Color setup
+        if dark_theme:
+            plt.style.use('dark_background')
+            surface_colorscale = 'plasma'
+            point_color = '#00FFFF'
+            best_point_color = '#FFFFFF'
+        else:
+            plt.style.use('default')
+            surface_colorscale = 'viridis'
+            point_color = '#FF0000'
+            best_point_color = '#FFD000'
+            
+        fig, ax = plt.subplots(figsize=canvas_size)
         
-        # 1. Base Traces
-        contour = go.Contour(z=Z, x=x, y=y, colorscale='Viridis', opacity=0.7, name='Function')
+        # Get grid data
+        x, y, Z = self._create_mesh_grid(mesh_resolution)
         
-        best_point = go.Scatter(
-            x=[self.result.best_x[0]], y=[self.result.best_x[1]],
-            mode='markers', marker=dict(color='red', symbol='star', size=15),
-            name=f'Best: {self.result.best_value:.4f}'
+        # Strict mathematical bounds based on your mesh grid
+        x_min, x_max = float(np.min(x)), float(np.max(x))
+        y_min, y_max = float(np.min(y)), float(np.max(y))
+        
+        # 2. Draw Landscape (Contour)
+        # Assuming x and y are 1D arrays and Z is 2D. 
+        # contourf provides filled contours similar to Plotly's default contour.
+        contour = ax.contourf(x, y, Z, levels=30, cmap=surface_colorscale, alpha=0.7)
+        fig.colorbar(contour, ax=ax, label='f(x)')
+        
+        # 3. Draw the Best Point
+        ax.scatter(
+            self.result.best_x[0], self.result.best_x[1],
+            c=best_point_color, marker='*', s=200, edgecolors='black', linewidths=1,
+            label=f'Best: {self.result.best_value:.6g}', zorder=3
         )
         
-        init_x = [p[0] for p in self.result.history_x[0]]
-        init_y = [p[1] for p in self.result.history_x[0]]
-        swarm = go.Scatter(
-            x=init_x, y=init_y, mode='markers',
-            marker=dict(color='magenta', size=8, line=dict(color='black', width=1)),
-            name='Swarm'
+        # 4. Filter initial swarm to discard out-of-bounds points
+        init_x, init_y = [], []
+        for p in self.result.history.history_x[0]:
+            if x_min <= p[0] <= x_max and y_min <= p[1] <= y_max:
+                init_x.append(p[0])
+                init_y.append(p[1])
+                
+        # Draw Initial Swarm
+        swarm_scatter = ax.scatter(
+            init_x, init_y, c=point_color, s=40, edgecolors='black', linewidths=1,
+            label='Agent', zorder=2
         )
         
-        fig = go.Figure(data=[contour, best_point, swarm])
+        # 5. Lock the axes
+        ax.set_xlim(x_min, x_max)
+        ax.set_ylim(y_min, y_max)
+        ax.set_xlabel('x₁')
+        ax.set_ylabel('x₂')
         
-        # 2. Animations
-        if animate:
-            frames = []
-            for i in range(len(self.result.history_x)):
-                curr_x = [p[0] for p in self.result.history_x[i]]
-                curr_y = [p[1] for p in self.result.history_x[i]]
-                
-                frame = go.Frame(
-                    data=[go.Scatter(x=curr_x, y=curr_y)],
-                    traces=[2], # Target the swarm trace (index 2)
-                    name=str(i)
-                )
-                frames.append(frame)
-                
-            fig = self._add_animation_controls(fig, frames, interval)
+        # Format Title (Matplotlib handles newlines with \n instead of <br>)
+        title_text = (
+            f"2D Contour: {str(self.problem)}; runtime={self.result.time:.2f}ms\n"
+            f"{self.result.algorithm}; rngseed={self.result.rng_seed}"
+        )
+        ax.set_title(title_text)
+        
+        # Place legend outside the plot
+        ax.legend(loc='upper left', bbox_to_anchor=(1.15, 1), borderaxespad=0.)
+        fig.tight_layout() # Ensures legend and labels aren't cut off
 
-        fig.update_layout(
-            title=f'{self.result.algorithm} on {self.problem}',
-            xaxis_title='x₁', yaxis_title='x₂',
-            width=800, height=700
+        # 6. Animation Update Function
+        def update(frame_idx):
+            curr_x, curr_y = [], []
+            
+            # Filter animation frames to discard out-of-bounds points
+            for p in self.result.history.history_x[frame_idx]:
+                if x_min <= p[0] <= x_max and y_min <= p[1] <= y_max:
+                    curr_x.append(p[0])
+                    curr_y.append(p[1])
+            
+            # Matplotlib scatter set_offsets expects an (N, 2) array
+            if curr_x: # Check if there are points to plot
+                swarm_scatter.set_offsets(np.c_[curr_x, curr_y])
+            else:
+                swarm_scatter.set_offsets(np.empty((0, 2)))
+                
+            return swarm_scatter,
+        
+        # Create the animation
+        ani = animation.FuncAnimation(
+            fig, update, 
+            frames=len(self.result.history.history_x),
+            interval=interval, 
+            blit=True, # Blitting optimizes rendering by only redrawing changed elements
+            repeat=False
         )
+
+        if export_mp4:
+            mp4_writer = animation.FFMpegWriter(
+                fps=10, 
+                codec='libx264', 
+                bitrate=1800, # Higher bitrate = better quality, larger file
+                extra_args=['-pix_fmt', 'yuv420p'] # Ensures compatibility across most media players
+            )
+            ani.save(export_mp4, writer=mp4_writer)
+            print(f"Animation video saved as {export_mp4}")
         
-        if save_path:
-            fig.write_html(save_path)
+        html_string = ani.to_jshtml()
+        if export_html:
+            with open(export_html, 'w') as f:
+                f.write(html_string)
+            print(f"Animation HTML saved as {export_html}")
+
+        if on_jupyter_notebook:
+            html_anim = HTML(html_string)
+            plt.close() # Prevents a static plot from showing up in Jupyter
+            display(html_anim)
+        else:
+            plt.show()
         
-        return fig
+        # It's important to return the 'ani' object as well. 
+        # If the animation object is garbage collected, the animation will freeze.
+        return fig, ani
     
-    def visualize_3d(self, resolution: int = 60, animate: bool = True,
-                     interval: int = 100, save_path: str | None = None):
+    def visualize_3d(self,  
+            mesh_resolution: int = 60,
+            canvas_size: tuple[float, float] = (1040, 780),
+            interval: int = 100, 
+            dark_theme: bool = False):
+        """
+        Visualizes the optimization process in 3D
+        Args:
+            mesh_resolution: Number of points along each axis for the surface grid.
+            canvas_size: Width and height of the figure in pixel.
+            interval: Time in milliseconds between animation frames.
+            dark_theme: Whether to use a dark theme
+        """
         if self.problem.dimension != 2:
             raise ValueError("3D visualization requires dimension=2")
         
-        x, y, Z = self._create_mesh_grid(resolution)
+        plotly_template: str = "plotly_dark" if dark_theme else "plotly_white"
+        surface_colorscale: str = "Plasma" if dark_theme else "Viridis"
+        point_color = "#00FFFF" if dark_theme else "#FF0000"       
+        best_point_color = "#FFFFFF" if dark_theme else "#FFD000"  
+        
+        x, y, Z = self._create_mesh_grid(mesh_resolution)
         
         # 1. Base Traces
-        surface = go.Surface(z=Z, x=x, y=y, colorscale='Viridis', opacity=0.8, name='Landscape')
+        surface = go.Surface(z=Z, x=x, y=y, colorscale=surface_colorscale, opacity=0.8, name='Landscape')
         
         best_point = go.Scatter3d(
             x=[self.result.best_x[0]], y=[self.result.best_x[1]], z=[self.result.best_value],
-            mode='markers', marker=dict(color='red', symbol='diamond', size=8),
-            name=f'Best: {self.result.best_value:.4f}'
+            mode='markers', marker=dict(color=best_point_color, symbol='diamond', size=5),
+            name=f'Best: {self.result.best_value:.6g}',
+            hovertemplate="Best Value: %{z} at (%{x}, %{y})<extra></extra>"
         )
         
-        init_x = [p[0] for p in self.result.history_x[0]]
-        init_y = [p[1] for p in self.result.history_x[0]]
-        init_z = self.result.history_value[0]
+        init_x = [p[0] for p in self.result.history.history_x[0]]
+        init_y = [p[1] for p in self.result.history.history_x[0]]
+        init_z = self.result.history.history_value[0]
         swarm = go.Scatter3d(
             x=init_x, y=init_y, z=init_z, mode='markers',
-            marker=dict(color='magenta', size=5, line=dict(color='black', width=1)),
-            name='Swarm'
+            marker=dict(color=point_color, size=3),
+            name='Agent'
         )
         
         fig = go.Figure(data=[surface, best_point, swarm])
         
         # 2. Animations
-        if animate:
-            frames = []
-            for i in range(len(self.result.history_x)):
-                curr_x = [p[0] for p in self.result.history_x[i]]
-                curr_y = [p[1] for p in self.result.history_x[i]]
-                curr_z = self.result.history_value[i]
-                
-                frame = go.Frame(
-                    data=[go.Scatter3d(x=curr_x, y=curr_y, z=curr_z)],
-                    traces=[2], # Target the swarm trace (index 2)
-                    name=str(i)
-                )
-                frames.append(frame)
-                
-            fig = self._add_animation_controls(fig, frames, interval)
+        frames = []
+        for i in range(len(self.result.history.history_x)):
+            curr_x = [p[0] for p in self.result.history.history_x[i]]
+            curr_y = [p[1] for p in self.result.history.history_x[i]]
+            curr_z = self.result.history.history_value[i]
+            
+            frame = go.Frame(
+                data=[go.Scatter3d(x=curr_x, y=curr_y, z=curr_z)],
+                traces=[2], # Target the swarm trace (index 2)
+                name=str(i)
+            )
+            frames.append(frame)
+            
+        fig = self._add_animation_controls(fig, frames, interval)
 
         fig.update_layout(
-            title=f'{self.result.algorithm} on {self.problem}',
+            template=plotly_template,
+            legend=dict(yanchor="top", y=0.99, xanchor="left", x=1.15),
+            title_text=(
+                f"3D Graph: {str(self.problem)}; runtime={self.result.time:.2f}ms<br>"
+                f"<sup>{self.result.algorithm}; rngseed={self.result.rng_seed}</sup>"
+            ),
             scene=dict(xaxis_title='x₁', yaxis_title='x₂', zaxis_title='f(x)'),
-            width=900, height=800,
+            width=canvas_size[0], height=canvas_size[1],
             margin=dict(l=0, r=0, b=0, t=50)
         )
         
-        if save_path:
-            fig.write_html(save_path)
-            
+        fig.show()
         return fig
     
-    def visualize_convergence(self, save_path: str | None = None):
-        best_values = []
-        current_best = float('inf')
-        for iteration_values in self.result.history_value:
-            current_best = min(current_best, min(iteration_values))
-            best_values.append(current_best)
-            
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(
-            x=list(range(len(best_values))), y=best_values,
-            mode='lines', name='Current Best', line=dict(color='blue', width=2)
-        ))
-        
-        fig.add_hline(y=self.result.best_value, line_dash="dash", line_color="red", 
-                      annotation_text=f'Final Best: {self.result.best_value:.6f}')
-        
-        fig.update_layout(
-            title=f'Convergence - {self.result.algorithm}',
-            xaxis_title='Iteration', yaxis_title='Best Function Value',
-            width=800, height=500
-        )
-        
-        if save_path:
-            fig.write_html(save_path)
-            
-        return fig
+def visualize_convergence(result: ContinuousResult | DiscreteResult, dark_theme: bool = False):
+    history = result.history
+    history_value = history.history_value
+    iterations: int = len(history_value)
+    num_agents: int = len(history_value[0]) if iterations > 0 else 0
 
-def visualize_result(result: ContinuousResult, method: str = '3d', 
-                     animate: bool = True, save_path: str | None = None, **kwargs):
-    visualizer = ContinuousResultVisualizer(result)
+    # --- 0. Theme Configuration ---
+    plotly_template: str = "plotly_dark" if dark_theme else "plotly_white"
+
+    # --- 1. Process Convergence Data ---
+    best_vals: list[float] = []
+    avg_vals: list[float] = []
     
-    if method == '2d':
-        fig = visualizer.visualize_2d(animate=animate, save_path=save_path, **kwargs)
-    elif method == '3d':
-        fig = visualizer.visualize_3d(animate=animate, save_path=save_path, **kwargs)
-    elif method == 'convergence':
-        fig = visualizer.visualize_convergence(save_path=save_path)
-    else:
-        raise ValueError(f"Unknown method: {method}. Use '2d', '3d', or 'convergence'")
+    for gen in history_value:
+        valid_fitnesses: list[float] = [float(v) for v in gen if v is not None and not math.isnan(float(v))] 
         
-    # Plotly's show() will automatically open a tab in your default web browser
+        if valid_fitnesses:
+            # Note: Continuous optimization generally defaults to minimization
+            best_vals.append(min(valid_fitnesses)) 
+            avg_vals.append(float(np.mean(valid_fitnesses)))
+        else:
+            best_vals.append(math.nan)
+            avg_vals.append(math.nan)
+
+    # Find the First Overall Best Value
+    overall_best_val = float(result.best_value)
+    first_best_idx = -1
+    
+    if not math.isinf(overall_best_val) and not math.isnan(overall_best_val):
+        # Using math.isclose since continuous values are floats
+        for i, val in enumerate(best_vals):
+            if math.isclose(val, overall_best_val, rel_tol=1e-9, abs_tol=1e-9):
+                first_best_idx = i
+                break
+
+    # --- 2. Build the Plotly Figure ---
+    fig = go.Figure()
+
+    best_line_name = 'Best Value' if num_agents > 1 else 'Current Value'
+    best_line_width = 3 if iterations < 300 else 1 
+    
+    fig.add_trace(
+        go.Scatter(
+            x=list(range(iterations)), y=best_vals, 
+            mode='lines', name=best_line_name, 
+            line=dict(color='#2ecc71', width=best_line_width),
+            connectgaps=True 
+        )
+    )
+    
+    # Add the Star Marker for the first best value
+    if first_best_idx != -1:
+        fig.add_trace(
+            go.Scatter(
+                x=[first_best_idx], 
+                y=[overall_best_val], 
+                mode='markers', 
+                name=f'First Best ({overall_best_val:.6g})', 
+                marker=dict(symbol='star', size=16, color='gold', line=dict(color='black', width=1)),
+                hovertemplate="Iteration: %{x}<br>Best Value: %{y}<extra></extra>"
+            )
+        )
+    
+    # Only render the average line if there is actually a swarm/population
+    if num_agents > 1:
+        fig.add_trace(
+            go.Scatter(
+                x=list(range(iterations)), y=avg_vals, 
+                mode='lines', name='Average Value', 
+                line=dict(color='#f39c12', width=2, dash='dash'),
+                connectgaps=True
+            )
+        )
+
+    # --- 3. Layout Adjustments ---
+    fig.update_layout(
+        title_text=(
+            f"Convergence: {str(result.problem)}; runtime={result.time:.2f}ms<br>"
+            f"<sup>{result.algorithm}; rngseed={result.rng_seed}</sup>"
+        ),
+        template=plotly_template,
+        hovermode="x unified", 
+        showlegend=True,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        xaxis_title="Iteration",
+        yaxis_title="Objective Value",
+        height=500  # Fixed height since there is no heatmap to expand
+    )
+
     fig.show()
-    return fig
 
 def visualize_knapsack(result: 'DiscreteResult', dark_theme: bool = False) -> None:
     smooth_transition_threshold = 300
