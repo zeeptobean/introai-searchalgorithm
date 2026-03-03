@@ -617,3 +617,249 @@ def visualize_graph_coloring(result: DiscreteResult) -> None:
     )
 
     fig.show()
+
+import numpy as np
+import numpy.typing as npt
+import networkx as nx
+import plotly.graph_objects as go
+
+def visualize_tsp(result: DiscreteResult, dark_theme: bool = False) -> go.Figure:
+    """
+    Creates an interactive Plotly visualization for TSP agents.
+    Features: Agent selection, iteration animation, edge weights, 
+    start highlighting, directional arrows, and dynamically updated info text.
+    
+    Args:
+        result: DiscreteResult containing the TSP problem and optimization history.
+        dark_theme: If True, sets the visualization to a dark theme.
+    """
+    if not isinstance(result.problem, TSPFunction):
+        raise TypeError("Result problem must be an instance of TSPFunction to visualize.")
+
+    # --- Theme Configuration ---
+    if dark_theme:
+        plotly_template = "plotly_dark"
+        bg_color = "rgb(17,17,17)"
+        font_color = "white"
+        edge_weight_color = "lightgray"
+        arrow_color = "#FFA07A" # Lighter coral for dark mode
+    else:
+        plotly_template = "plotly_white"
+        bg_color = "white"
+        font_color = "black"
+        edge_weight_color = "gray"
+        arrow_color = "coral"
+
+    dist_matrix = result.problem.distance_matrix
+    dimension = result.problem.dimension
+    history_x = result.history.history_x
+    history_val = result.history.history_value
+    best_overall_val = result.best_value
+    
+    num_iters = len(history_x)
+    num_agents = len(history_x[0]) if num_iters > 0 else 0
+
+    # 1. Calculate Graph Layout
+    G = nx.from_numpy_array(dist_matrix)
+    pos = nx.circular_layout(G) 
+    
+    node_x = [pos[i][0] for i in range(dimension)]
+    node_y = [pos[i][1] for i in range(dimension)]
+    
+    # Coordinates for the Info Text Panel - Moved higher to act as a Subtitle
+    # The graph circle peaks at y=1.0, so y=1.35 gives plenty of clearance.
+    info_x = -1.45
+    info_y = 1.35
+
+    fig = go.Figure()
+
+    # Trace 0: The Nodes (Cities)
+    fig.add_trace(go.Scatter(
+        x=node_x, y=node_y, 
+        mode='markers+text',
+        text=[f"City {i}" for i in range(dimension)],
+        textposition="bottom center",
+        marker=dict(size=12, color='lightblue', line=dict(width=2, color='black')),
+        name='Cities',
+        hoverinfo='text'
+    ))
+
+    for k in range(num_agents):
+        path = [int(n) for n in history_x[0][k]]
+        path_closed = path + [path[0]] # Wrap back to the first node
+        px = [pos[n][0] for n in path_closed]
+        py = [pos[n][1] for n in path_closed]
+        
+        # Color coding: Start (Green). Rest (Coral). 
+        colors = ['#00CC96'] + ['coral'] * (len(path) - 1) + ['rgba(0,0,0,0)']
+        sizes = [16] + [8] * (len(path) - 1) + [0]
+
+        # Trace Group A: Agent Paths (Traces 1 to N)
+        fig.add_trace(go.Scatter(
+            x=px, y=py,
+            mode='lines+markers',
+            line=dict(width=3, color='coral'),
+            marker=dict(color=colors, size=sizes, line=dict(width=1, color='black')),
+            visible=(k == 0),
+            name=f'Agent {k} Path'
+        ))
+        
+    for k in range(num_agents):
+        path = [int(n) for n in history_x[0][k]]
+        path_closed = path + [path[0]]
+        mid_x, mid_y, edge_weights, angles = [], [], [], []
+        
+        for i in range(len(path_closed) - 1):
+            n1, n2 = path_closed[i], path_closed[i+1]
+            x1, y1 = pos[n1][0], pos[n1][1]
+            x2, y2 = pos[n2][0], pos[n2][1]
+            
+            mid_x.append((x1 + x2) / 2)
+            mid_y.append((y1 + y2) / 2)
+            edge_weights.append(f"{dist_matrix[n1][n2]:.1f}")
+            
+            # Calculate angle for the directional arrow (Plotly angles rotate clockwise)
+            angle_deg = np.degrees(np.arctan2(y2 - y1, x2 - x1))
+            angles.append(-angle_deg) 
+
+        # Trace Group B: Edge Weights & Arrows (Traces N+1 to 2N)
+        fig.add_trace(go.Scatter(
+            x=mid_x, y=mid_y,
+            mode='text+markers',
+            text=edge_weights,
+            textposition='top center',
+            textfont=dict(size=11, color=edge_weight_color),
+            marker=dict(symbol='triangle-right', size=14, color=arrow_color, angle=angles, line=dict(width=1, color='darkred')),
+            visible=(k == 0),
+            showlegend=False,
+            hoverinfo='skip'
+        ))
+        
+    for k in range(num_agents):
+        val = history_val[0][k]
+        path = [int(n) for n in history_x[0][k]]
+        
+        # Formatted horizontally to look like a clean subtitle underneath the main title
+        info_text = (f"<b>Start Node:</b> City {path[0]}   |   "
+                     f"<b>Config Value:</b> {val:.2f}   |   "
+                     f"<b>Global Best:</b> {best_overall_val:.2f}")
+        
+        # Trace Group C: Status Info Text (Traces 2N+1 to 3N)
+        fig.add_trace(go.Scatter(
+            x=[info_x], y=[info_y],
+            mode='text',
+            text=[info_text],
+            textposition="top right", # Draws the text UPWARDS away from the graph
+            textfont=dict(size=14, color=font_color),
+            visible=(k == 0),
+            name=f'Agent {k} Info',
+            showlegend=False,
+            hoverinfo='skip'
+        ))
+
+    # 2. Build Frames for Animation
+    frames = []
+    for t in range(num_iters):
+        frame_data = []
+        
+        # 1. Update Paths
+        for k in range(num_agents):
+            path = [int(n) for n in history_x[t][k]]
+            path_closed = path + [path[0]]
+            px = [pos[n][0] for n in path_closed]
+            py = [pos[n][1] for n in path_closed]
+            
+            colors = ['#00CC96'] + ['coral'] * (len(path) - 1) + ['rgba(0,0,0,0)']
+            sizes = [16] + [8] * (len(path) - 1) + [0]
+            
+            frame_data.append(go.Scatter(x=px, y=py, marker=dict(color=colors, size=sizes)))
+            
+        # 2. Update Edge Weights & Arrows
+        for k in range(num_agents):
+            path = [int(n) for n in history_x[t][k]]
+            path_closed = path + [path[0]]
+            mid_x, mid_y, edge_weights, angles = [], [], [], []
+            for i in range(len(path_closed) - 1):
+                n1, n2 = path_closed[i], path_closed[i+1]
+                x1, y1 = pos[n1][0], pos[n1][1]
+                x2, y2 = pos[n2][0], pos[n2][1]
+                
+                mid_x.append((x1 + x2) / 2)
+                mid_y.append((y1 + y2) / 2)
+                edge_weights.append(f"{dist_matrix[n1][n2]:.1f}")
+                
+                angle_deg = np.degrees(np.arctan2(y2 - y1, x2 - x1))
+                angles.append(-angle_deg)
+                
+            frame_data.append(go.Scatter(x=mid_x, y=mid_y, text=edge_weights, marker=dict(angle=angles)))
+            
+        # 3. Update Status Info Text (Horizontal Format)
+        for k in range(num_agents):
+            val = history_val[t][k]
+            path = [int(n) for n in history_x[t][k]]
+            info_text = (f"<b>Start Node:</b> City {path[0]}   |   "
+                         f"<b>Config Value:</b> {val:.2f}   |   "
+                         f"<b>Global Best:</b> {best_overall_val:.2f}")
+            
+            frame_data.append(go.Scatter(x=[info_x], y=[info_y], text=[info_text]))
+            
+        trace_indices = list(range(1, 3 * num_agents + 1))
+        frames.append(go.Frame(data=frame_data, name=str(t), traces=trace_indices))
+        
+    fig.frames = frames
+
+    # 3. Create Dropdown to select Agents
+    agent_buttons = []
+    for k in range(num_agents):
+        visible_array = [True] + \
+                        [i == k for i in range(num_agents)] + \
+                        [i == k for i in range(num_agents)] + \
+                        [i == k for i in range(num_agents)]
+        agent_buttons.append(dict(
+            label=f"Agent {k}", method="update",
+            args=[{"visible": visible_array}, {"title": f"Path Visualization: TSP(cities={result.problem.dimension}); Agent {k}; runtime={result.time:.2f}ms<br><sup>{result.algorithm}; rngseed={result.rng_seed}</sup>"}]
+        ))
+
+    # 4. Final Layout config
+    fig.update_layout(
+        title=dict(text=f"Path Visualization: TSP(cities={result.problem.dimension}); Agent 0; runtime={result.time:.2f}ms<br><sup>{result.algorithm}; rngseed={result.rng_seed}</sup>", font=dict(color=font_color)),
+        template=plotly_template,
+        plot_bgcolor=bg_color,
+        paper_bgcolor=bg_color,
+        updatemenus=[
+            # Play / Pause Buttons
+            dict(
+                type="buttons", direction="right", showactive=False,
+                x=0.0, y=-0.1, xanchor="left", yanchor="top",
+                buttons=[
+                    dict(label="Play", method="animate", args=[None, dict(frame=dict(duration=800, redraw=True), fromcurrent=True)]),
+                    dict(label="Pause", method="animate", args=[[None], dict(frame=dict(duration=0, redraw=False), mode="immediate")])
+                ],
+                font=dict(color=font_color)
+            ),
+            # Agent Dropdown
+            dict(
+                buttons=agent_buttons, direction="up", showactive=True,
+                x=0.15, y=-0.1, xanchor="left", yanchor="top",
+                font=dict(color=font_color)
+            )
+        ],
+        sliders=[dict(
+            steps=[dict(
+                method='animate', 
+                args=[[str(t)], dict(mode='immediate', frame=dict(duration=800, redraw=True))], 
+                label=f"Iter {t}"
+            ) for t in range(num_iters)],
+            x=0.3, y=-0.1, len=0.7, xanchor="left", yanchor="top",
+            font=dict(color=font_color)
+        )],
+        # Extended yaxis to 1.6 to ensure the new "Subtitle" trace has plenty of space
+        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-1.5, 1.5]),
+        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-1.4, 1.6], scaleanchor="x", scaleratio=1),
+        height=800,
+        width=1200,
+        margin=dict(b=100) 
+    )
+    
+    fig.show()
+    return fig
