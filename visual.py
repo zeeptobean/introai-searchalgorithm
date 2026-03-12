@@ -9,6 +9,7 @@ import matplotlib.animation as animation
 from plotly.subplots import make_subplots
 from IPython.display import display, HTML
 from function.discrete_function import *
+from function.continuous_function import *
 from util.result import *
 from util.define import *
 from util.util import *
@@ -390,6 +391,98 @@ def visualize_convergence(result: ContinuousResult | DiscreteResult, dark_theme:
     )
 
     fig.show()
+
+def visualize_convergence_multiple(
+    results: list[ContinuousResult] | list[DiscreteResult] | list[ContinuousResult | DiscreteResult], 
+    dark_theme: bool = False
+):
+    """
+    Visualize convergence curves for multiple optimization results.
+    Only plots the best value line for each result.
+    
+    Args:
+        results: List of optimization results to compare
+        dark_theme: Whether to use dark theme
+    """
+    
+    # Theme Configuration
+    plotly_template: str = "plotly_dark" if dark_theme else "plotly_white"
+    
+    # Generate distinct colors for each line
+    colors = ['#2ecc71', '#3498db', '#e74c3c', '#f39c12', '#9b59b6', 
+              '#1abc9c', '#e67e22', '#95a5a6', '#34495e', '#d35400']
+    
+    fig = go.Figure()
+
+    problem: ContinuousProblem | DiscreteProblem | None = None
+    for obj in results:
+        if problem is None:
+            problem = obj.problem
+        elif obj.problem != problem:
+            raise ValueError("All results must be from the same problem for a meaningful comparison.")
+    
+    # Process each result
+    for idx, result in enumerate(results):
+        history_value = result.history.history_value
+        iterations: int = len(history_value)
+        
+        # Extract best values per iteration
+        best_vals: list[float] = []
+        for gen in history_value:
+            valid_fitnesses: list[float] = [
+                float(v) for v in gen 
+                if v is not None and not math.isnan(float(v))
+            ]
+            
+            if valid_fitnesses:
+                if isinstance(result.problem, DiscreteProblem) and result.problem.is_max_value_problem():
+                    best_vals.append(max(valid_fitnesses))
+                else:
+                    best_vals.append(min(valid_fitnesses))
+            else:
+                best_vals.append(math.nan)
+        
+        # Determine line width based on number of iterations
+        line_width = 3 if iterations < 300 else 2
+        
+        # Add trace for this result
+        fig.add_trace(
+            go.Scatter(
+                x=list(range(iterations)),
+                y=best_vals,
+                mode='lines',
+                name=f'{result.short_name} (best: {result.best_value:.6f})',
+                line=dict(color=colors[idx % len(colors)], width=line_width),
+                connectgaps=True,
+                hovertemplate=(
+                    f"<b>{result.algorithm}</b><br>"
+                    "Value: %{y}<br>"
+                    "<extra></extra>"
+                )
+            )
+        )
+    
+    # Layout configuration
+    fig.update_layout(
+        title_text=(
+            f"Convergence Comparison<br>"
+            f"<sup>{str(problem)}</sup>"
+        ),
+        template=plotly_template,
+        hovermode="x unified",
+        showlegend=True,
+        legend=dict(
+            orientation="v",
+            yanchor="top",
+            y=0.99,
+            xanchor="left",
+            x=1.02
+        ),
+        xaxis_title="Iteration",
+        yaxis_title="Best Objective Value",
+    )
+    
+    return fig
 
 def visualize_knapsack(result: 'DiscreteResult', dark_theme: bool = False) -> None:
     smooth_transition_threshold = 300
