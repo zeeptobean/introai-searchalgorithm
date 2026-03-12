@@ -44,13 +44,13 @@ adjacency_matrix = np.array([
     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
     [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0]
 ])
-problem = discfunc.GraphColoringFunction(adjacency_matrix=adjacency_matrix, dimension=20)
-# problem = discfunc.KnapsackFunction(
-#     weights=np.array([10, 20, 30, 40, 50]),
-#     values=np.array([60, 100, 120, 240, 300]),
-#     capacity=100,
-#     dimension=5
-# )
+# problem = discfunc.GraphColoringFunction(adjacency_matrix=adjacency_matrix, dimension=20)
+problem = discfunc.KnapsackFunction(
+    weights=np.array([10, 20, 30, 40, 50]),
+    values=np.array([60, 100, 120, 240, 300]),
+    capacity=100,
+    dimension=5
+)
 # result = simulated_annealing_continuous(problem, rng_seed=42, step_bound=0.5, temp=100.0, cooling_rate=0.99)
 # result = differential_evolution_continuous(problem, rng_seed=42, population_size=60, generation=1500)
 # result = differential_evolution_continuous(problem, rng_seed=42, generation=10)
@@ -93,5 +93,7 @@ result = simulated_annealing_discrete_geometric(
 # with open("result.dat", "rb") as f:
 #     result = ContinuousResult.from_binary(f.read())
 
+print("=== Final Result ===")
 print(f"algo = {result.algorithm}, problem = {result.problem}")
 print(f"best = {result.best_value} at x = {result.best_x} took {result.time:.4f} ms")
+print(result)
