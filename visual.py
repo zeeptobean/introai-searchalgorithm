@@ -392,6 +392,68 @@ def visualize_convergence(result: ContinuousResult | DiscreteResult, dark_theme:
 
     fig.show()
 
+def visualize_runtime_vs_best(
+    results: list[ContinuousResult] | list[DiscreteResult] | list[ContinuousResult | DiscreteResult],
+    dark_theme: bool = False
+) -> go.Figure:
+    """
+    Compare runtime (bar) vs best convergence value (line) in a single figure.
+    """
+
+    plotly_template: str = "plotly_dark" if dark_theme else "plotly_white"
+
+    problem: ContinuousProblem | DiscreteProblem | None = None
+    for obj in results:
+        if problem is None:
+            problem = obj.problem
+        elif obj.problem != problem:
+            raise ValueError("All results must be from the same problem for a meaningful comparison.")
+
+    labels = [r.short_name for r in results]
+    runtimes = [float(r.time) for r in results]  # ms
+    best_vals = [float(r.best_value) for r in results]
+
+    fig = go.Figure()
+
+    # Bar: runtime (left axis)
+    fig.add_trace(
+        go.Bar(
+            x=labels,
+            y=runtimes,
+            name="Runtime (ms)",
+            marker_color="#2cebe5",
+            yaxis="y1",
+            hovertemplate="Alg: %{x}<br>Runtime: %{y:.2f} ms<extra></extra>"
+        )
+    )
+
+    # Line: best value (right axis)
+    fig.add_trace(
+        go.Scatter(
+            x=labels,
+            y=best_vals,
+            mode="lines+markers",
+            name="Best Value",
+            line=dict(color="#dc0000", width=3),
+            marker=dict(size=8),
+            yaxis="y2",
+            hovertemplate="Alg: %{x}<br>Best: %{y:.6g}<extra></extra>"
+        )
+    )
+
+    fig.update_layout(
+        title_text=f"Runtime vs Best Value Comparison<br><sup>{str(problem)}</sup>",
+        template=plotly_template,
+        barmode="group",
+        yaxis=dict(title="Runtime (ms)", showgrid=False),
+        yaxis2=dict(title="Best Value", overlaying="y", side="right", showgrid=False),
+        xaxis=dict(title="Algorithm"),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        height=600
+    )
+
+    return fig
+
 def visualize_convergence_multiple(
     results: list[ContinuousResult] | list[DiscreteResult] | list[ContinuousResult | DiscreteResult], 
     dark_theme: bool = False
