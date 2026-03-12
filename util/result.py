@@ -9,6 +9,7 @@ import function.discrete_function as discfunc
 class Result:
     type: str
     algorithm: str
+    short_name: str
     iterations: int
     rng_seed: int
     time: float
@@ -112,6 +113,7 @@ History:
         return ContinuousResult(
             algorithm=json_dict["algorithm"],
             problem=problem,
+            short_name=json_dict["short_name"],
             iterations=json_dict["iterations"],
             time=json_dict["time"],
             rng_seed=json_dict["rng_seed"],

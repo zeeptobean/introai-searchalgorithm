@@ -49,7 +49,8 @@ def simulated_annealing_continuous(
     best_x, best_value = history.get_best_value()
 
     return ContinuousResult(
-        algorithm="Simulated Annealing (geometric cooling)",
+        algorithm=f"Simulated Annealing (geometric-cooling, temp={temp:.4f}, min_temp={min_temp:.4f}, cooling_rate={cooling_rate:.4f})",
+        short_name="SA",
         problem=problem,
         last_x=[current_x],
         last_value=[current_energy],
@@ -106,7 +107,8 @@ def simulated_annealing_linear_continuous(
     best_x, best_value = history.get_best_value()
 
     return ContinuousResult(
-        algorithm="Simulated Annealing (linear cooling)",
+        algorithm=f"Simulated Annealing (linear-cooling, max_temp={max_temp:.4f}, max_iteration={max_iteration})",
+        short_name="SA",
         problem=problem,
         last_x=[current_x],
         last_value=[current_energy],
@@ -165,6 +167,7 @@ def simulated_annealing_discrete(
 
     return DiscreteResult(
         algorithm=f"Simulated Annealing (geometric-cooling, temp={original_temp:.4f}, min_temp={min_temp:.4f}, cooling_rate={cooling_rate:.4f})",
+        short_name="SA",
         problem=problem,
         last_x=[current_x],
         last_value=[current_energy],
@@ -220,6 +223,7 @@ def simulated_annealing_linear_discrete(
 
     return DiscreteResult(
         algorithm=f"Simulated Annealing (linear-cooling, max_temp={max_temp:.4f}, max_iteration={max_iteration})",
+        short_name="SA",
         problem=problem,
         last_x=[current_x],
         last_value=[current_energy],
