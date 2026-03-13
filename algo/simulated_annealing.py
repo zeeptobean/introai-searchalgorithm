@@ -98,7 +98,7 @@ def simulated_annealing_linear_continuous(
             current_energy = next_energy
             history.add([next_x], [next_energy], f"temp: {temp:.4f}, delta: {delta:.4f} (accepted)")
         else:
-            history.add([next_x], [next_energy], f"temp: {temp:.4f}, delta: {delta:.4f} (rejected)")
+            history.add([next_x], [current_energy], f"temp: {temp:.4f}, delta: {delta:.4f} (rejected)")
 
         iteration += 1
     total_time = timer.stop()
