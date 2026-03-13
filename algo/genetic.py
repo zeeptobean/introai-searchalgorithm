@@ -99,7 +99,8 @@ def genetic_algorithm_continuous(
     best_x, best_value = history.get_best_value()
 
     return ContinuousResult(
-        algorithm="Genetic Algorithm",
+        algorithm=f"Genetic Algorithm(tK={tournament_k}, CRa={crossover_alpha:.4f}, CR={crossover_rate:.4f}, MStr={mutation_strength:.4f}, MRate={mutation_rate:.4f}, NP={population_size}, Gen={generation})",
+        short_name="GA",
         problem=problem,
         time=total_time,
         last_x=population,
@@ -246,7 +247,8 @@ def genetic_algorithm_discrete(
     best_x, best_value = history.get_best_value()
 
     return DiscreteResult(
-        algorithm="Genetic Algorithm",
+        algorithm=f"Genetic Algorithm(tK={tournament_k}, CR={crossover_rate:.4f}, MRate={mutation_rate:.4f}, NP={population_size}, Gen={generation})",
+        short_name="GA",
         problem=problem,
         time=total_time,
         last_x=population,

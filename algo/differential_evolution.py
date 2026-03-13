@@ -60,7 +60,8 @@ def differential_evolution_continuous(
     best_x, best_value = history.get_best_value()
 
     return ContinuousResult(
-        algorithm="Differential Evolution",
+        algorithm=f"Differential Evolution(F={mutation_factor:.4f}, CR={crossover_rate:.4f}), NP={population_size}, Gen={generation})",
+        short_name="DE",
         problem=problem,
         time=total_time,
         last_x=population,
@@ -147,7 +148,8 @@ def differential_evolution_discrete(
     best_x, best_value = history.get_best_value()
 
     return DiscreteResult(
-        algorithm="Differential Evolution",
+        algorithm=f"Differential Evolution(F={mutation_factor:.4f}, CR={crossover_rate:.4f}), NP={population_size}, Gen={generation})",
+        short_name="DE",
         problem=problem,
         time=total_time,
         last_x=population,
