@@ -338,7 +338,7 @@ def visualize_convergence(result: ContinuousResult | DiscreteResult, dark_theme:
     # --- 2. Build the Plotly Figure ---
     fig = go.Figure()
 
-    best_line_name = 'Best Value' if num_agents > 1 else 'Current Value'
+    best_line_name = "Swarms Best Value" if num_agents > 1 else 'Current Value'
     best_line_width = 3 if iterations < 300 else 1 
     
     fig.add_trace(
@@ -368,7 +368,7 @@ def visualize_convergence(result: ContinuousResult | DiscreteResult, dark_theme:
         fig.add_trace(
             go.Scatter(
                 x=list(range(iterations)), y=avg_vals, 
-                mode='lines', name='Average Value', 
+                mode='lines', name='Average Swarms Value', 
                 line=dict(color='#f39c12', width=2, dash='dash'),
                 connectgaps=True
             )
@@ -457,7 +457,7 @@ def visualize_knapsack(result: 'DiscreteResult', dark_theme: bool = False) -> No
     )
 
     # Top Plot: Convergence Lines
-    best_line_name = 'Best Value' if num_agents > 1 else 'Current Value'
+    best_line_name = "Swarms Best Value" if num_agents > 1 else 'Current Value'
     best_line_width = 3 if iterations < smooth_transition_threshold else 1 
     
     fig.add_trace(
@@ -477,7 +477,7 @@ def visualize_knapsack(result: 'DiscreteResult', dark_theme: bool = False) -> No
                 x=[first_best_idx], 
                 y=[overall_best_val], 
                 mode='markers', 
-                name=f'First Best ({overall_best_val})', 
+                name=f'First Global Best ({overall_best_val})', 
                 marker=dict(symbol='star', size=16, color='gold', line=dict(color='black', width=1)),
                 hovertemplate="Iteration: %{x}<br>Best Value: %{y}<extra></extra>"
             ),
@@ -489,7 +489,7 @@ def visualize_knapsack(result: 'DiscreteResult', dark_theme: bool = False) -> No
         fig.add_trace(
             go.Scatter(
                 x=list(range(iterations)), y=avg_vals, 
-                mode='lines', name='Average Value', 
+                mode='lines', name='Swarms Average Value', 
                 line=dict(color='#f39c12', width=2, dash='dash'),
                 connectgaps=True
             ),
