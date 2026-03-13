@@ -50,7 +50,7 @@ class DiscreteProblem:
         
         return self.neighbor_function(x, step_size, rng)
 
-
+# Using 2-opt swap for TSP
 class TSPFunction(DiscreteProblem):
     def __init__(self, dimension: int, distance_matrix: npt.NDArray[np.float64]):
         self.distance_matrix = distance_matrix
@@ -80,13 +80,15 @@ class TSPFunction(DiscreteProblem):
         return total_distance
 
     def tsp_neighbor(self, x: FloatVector, step_size: int, rng: RNGWrapper) -> FloatVector:
-        """Generate a neighboring solution by swapping two cities in the tour"""
+        """Generate a neighboring solution by using 2-opt swap (swapping two cities in the tour)"""
         neighbor = x.copy()
         # Use step_size to determine number of swaps (at least 1)
         num_swaps = max(1, step_size)
         for _ in range(num_swaps):
-            idx1, idx2 = rng.rng.choice(self.dimension, size=2, replace=False)
-            neighbor[idx1], neighbor[idx2] = neighbor[idx2], neighbor[idx1]
+            indices = sorted(rng.rng.choice(self.dimension, size=2, replace=False))
+            i, j = indices[0], indices[1]
+            # Perform 2-opt swap: reverse the segment between i and j
+            neighbor[i:j+1] = neighbor[i:j+1][::-1]
         return neighbor
 
     def tsp_random_solution(self, rng: RNGWrapper) -> FloatVector:
