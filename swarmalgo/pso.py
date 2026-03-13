@@ -85,7 +85,8 @@ def pso_continuous(
     total_time = timer.stop()
 
     return ContinuousResult(
-        algorithm="Particle Swarm Optimization",
+        algorithm=f"Particle Swarm Optimization(NP={population_size}, gen={generation}, w={inertia_weight}, c1={cognitive_coeff}, c2={social_coeff})",
+        short_name="PSO",
         problem=problem,
         time=total_time,
         last_x=population,
@@ -242,7 +243,8 @@ def pso_discrete_tsp(
     best_x, best_value = history.get_best_value()
 
     return DiscreteResult(
-        algorithm="Particle Swarm Optimization (TSP)",
+        algorithm=f"Particle Swarm Optimization(NP={population_size}, gen={generation}, w={inertia_weight}, c1={cognitive_coeff}, c2={social_coeff})",
+        short_name="PSO-TSP",
         problem=problem,
         time=total_time,
         last_x=population,
@@ -368,7 +370,8 @@ def pso_discrete_knapsack(
     best_x, best_value = history.get_best_value()
 
     return DiscreteResult(
-        algorithm="Particle Swarm Optimization (Knapsack)",
+        algorithm=f"Particle Swarm Optimization(NP={population_size}, gen={generation}, w={inertia_weight}, c1={cognitive_coeff}, c2={social_coeff})",
+        short_name="PSO-KP",
         problem=problem,
         time=total_time,
         last_x=population,
@@ -499,7 +502,8 @@ def pso_discrete_graphcoloring(
     best_x, best_value = history.get_best_value()
 
     return DiscreteResult(
-        algorithm="Particle Swarm Optimization (Graph Coloring)",
+        algorithm=f"Particle Swarm Optimization(NP={population_size}, gen={generation}, w={inertia_weight}, c1={cognitive_coeff}, c2={social_coeff})",
+        short_name="PSO-GC",
         problem=problem,
         time=total_time,
         last_x=population,

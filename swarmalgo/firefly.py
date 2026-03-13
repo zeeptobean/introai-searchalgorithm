@@ -86,7 +86,8 @@ def firefly_continuous(
     best_x, best_value = history.get_best_value()
 
     return ContinuousResult(
-        algorithm="Firefly Algorithm",
+        algorithm=f"Firefly Algorithm(NP={population_size}, gen={generation}, alpha={alpha}, beta0={beta0}, gamma={gamma})",
+        short_name="FA",
         problem=problem,
         time=total_time,
         last_x=population,
@@ -200,7 +201,8 @@ def firefly_discrete_tsp(
     best_x, best_value = history.get_best_value()
 
     return DiscreteResult(
-        algorithm="Firefly-TSP",
+        algorithm=f"Firefly Algorithm(NP={population_size}, gen={generation}, alpha={alpha}, beta0={beta0}, gamma={gamma})",
+        short_name="FA-TSP",
         problem=problem,
         time=total_time,
         last_x=population,
@@ -314,7 +316,8 @@ def firefly_discrete_knapsack(
     best_x, best_value = history.get_best_value()
 
     return DiscreteResult(
-        algorithm="Firefly-Knapsack",
+        algorithm=f"Firefly Algorithm(NP={population_size}, gen={generation}, alpha={alpha}, beta0={beta0}, gamma={gamma})",
+        short_name="FA-KP",
         problem=problem,
         time=total_time,
         last_x=population,
@@ -430,7 +433,8 @@ def firefly_discrete_graphcoloring(
     best_x, best_value = history.get_best_value()
 
     return DiscreteResult(
-        algorithm="Firefly-GraphColoring",
+        algorithm=f"Firefly Algorithm(NP={population_size}, gen={generation}, alpha={alpha}, beta0={beta0}, gamma={gamma})",
+        short_name="FA-GC",
         problem=problem,
         time=total_time,
         last_x=population,
@@ -552,7 +556,8 @@ def firefly_discrete(
         best_x, best_value = history.get_best_value()
 
         return DiscreteResult(
-            algorithm="Firefly Algorithm",
+            algorithm=f"Firefly Algorithm(NP={population_size}, gen={generation}, alpha={alpha}, beta0={beta0}, gamma={gamma})",
+            short_name="FA",
             problem=problem,
             time=total_time,
             last_x=population,

@@ -79,7 +79,8 @@ def tlbo_continuous(
     best_x, best_value = history.get_best_value()
 
     return ContinuousResult(
-        algorithm="Teaching-Learning-Based Optimization",
+        algorithm=f"Teaching-Learning-Based Optimization(NP={population_size}, gen={generation})",
+        short_name="TLBO",
         problem=problem,
         time=total_time,
         last_x=population,
@@ -200,7 +201,8 @@ def tlbo_discrete_tsp(
     best_x, best_value = history.get_best_value()
 
     return DiscreteResult(
-        algorithm="TLBO-TSP",
+        algorithm=f"Teaching-Learning-Based Optimization(NP={population_size}, gen={generation})",
+        short_name="TLBO-TSP",
         problem=problem,
         time=total_time,
         last_x=population,
@@ -303,7 +305,8 @@ def tlbo_discrete_knapsack(
     best_x, best_value = history.get_best_value()
 
     return DiscreteResult(
-        algorithm="TLBO-Knapsack",
+        algorithm=f"Teaching-Learning-Based Optimization(NP={population_size}, gen={generation})",
+        short_name="TLBO-KP",
         problem=problem,
         time=total_time,
         last_x=population,
@@ -405,7 +408,8 @@ def tlbo_discrete_graphcoloring(
     best_x, best_value = history.get_best_value()
 
     return DiscreteResult(
-        algorithm="TLBO-GraphColoring",
+        algorithm=f"Teaching-Learning-Based Optimization(NP={population_size}, gen={generation})",
+        short_name="TLBO-GC",
         problem=problem,
         time=total_time,
         last_x=population,

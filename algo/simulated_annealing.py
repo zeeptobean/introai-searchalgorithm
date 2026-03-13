@@ -194,9 +194,13 @@ def simulated_annealing_discrete_tsp(
     total_time = timer.stop()
     best_x, best_value = history.get_best_value()
 
+    algorithm_name = f"Simulated Annealing (geometric-cooling, temp={temp:.4f}, min_temp={min_temp:.4f}, cooling_rate={cooling_rate:.4f})"
+    if cooling_schedule == "linear":
+        algorithm_name = f"Simulated Annealing (linear-cooling, max_temp={original_temp:.4f}, max_iteration={max_iteration})"
+
     return DiscreteResult(
-        algorithm=f"SA-TSP ({cooling_schedule}-cooling)",
-        short_name="SA",
+        algorithm=algorithm_name,
+        short_name="SA-TSP",
         problem=problem,
         last_x=[current_x],
         last_value=[current_energy],
@@ -283,8 +287,13 @@ def simulated_annealing_discrete_knapsack(
     total_time = timer.stop()
     best_x, best_value = history.get_best_value()
 
+    algorithm_name = f"Simulated Annealing (geometric-cooling, temp={temp:.4f}, min_temp={min_temp:.4f}, cooling_rate={cooling_rate:.4f})"
+    if cooling_schedule == "linear":
+        algorithm_name = f"Simulated Annealing (linear-cooling, max_temp={original_temp:.4f}, max_iteration={max_iteration})"
+
     return DiscreteResult(
-        algorithm=f"SA-Knapsack ({cooling_schedule}-cooling)",
+        algorithm=algorithm_name,
+        short_name="SA-KP",
         problem=problem,
         last_x=[current_x],
         last_value=[current_energy],
@@ -374,9 +383,13 @@ def simulated_annealing_discrete_graphcoloring(
     total_time = timer.stop()
     best_x, best_value = history.get_best_value()
 
+    algorithm_name = f"Simulated Annealing (geometric-cooling, temp={temp:.4f}, min_temp={min_temp:.4f}, cooling_rate={cooling_rate:.4f})"
+    if cooling_schedule == "linear":
+        algorithm_name = f"Simulated Annealing (linear-cooling, max_temp={original_temp:.4f}, max_iteration={max_iteration})"
+
     return DiscreteResult(
-        algorithm=f"SA-GraphColoring ({cooling_schedule}-cooling)",
-        short_name="SA",
+        algorithm=algorithm_name,
+        short_name="SA-GC",
         problem=problem,
         last_x=[current_x],
         last_value=[current_energy],
@@ -478,8 +491,13 @@ def simulated_annealing_discrete(
         total_time = timer.stop()
         best_x, best_value = history.get_best_value()
 
+        algorithm_name = f"Simulated Annealing (geometric-cooling, temp={temp:.4f}, min_temp={min_temp:.4f}, cooling_rate={cooling_rate:.4f})"
+        if cooling_schedule == "linear":
+            algorithm_name = f"Simulated Annealing (linear-cooling, max_temp={original_temp:.4f}, max_iteration={max_iteration})"
+
         return DiscreteResult(
-            algorithm=f"Simulated Annealing ({cooling_schedule}-cooling)",
+            algorithm=algorithm_name,
+            short_name="SA",
             problem=problem,
             last_x=[current_x],
             last_value=[current_energy],

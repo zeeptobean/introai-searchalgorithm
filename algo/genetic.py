@@ -313,7 +313,8 @@ def genetic_algorithm_discrete_tsp(
     best_x, best_value = history.get_best_value()
 
     return DiscreteResult(
-        algorithm="GA-TSP",
+        algorithm=f"Genetic Algorithm(tK={tournament_k}, CR={crossover_rate:.4f}, MRate={mutation_rate:.4f}, NP={population_size}, Gen={generation})",
+        short_name="GA-TSP",
         problem=problem,
         time=total_time,
         last_x=population,
@@ -397,7 +398,8 @@ def genetic_algorithm_discrete_knapsack(
     best_x, best_value = history.get_best_value()
 
     return DiscreteResult(
-        algorithm="GA-Knapsack",
+        algorithm=f"Genetic Algorithm(tK={tournament_k}, CR={crossover_rate:.4f}, MRate={mutation_rate:.4f}, NP={population_size}, Gen={generation})",
+        short_name="GA-KP",
         problem=problem,
         time=total_time,
         last_x=population,
@@ -493,7 +495,8 @@ def genetic_algorithm_discrete_graphcoloring(
     best_x, best_value = history.get_best_value()
 
     return DiscreteResult(
-        algorithm="GA-GraphColoring",
+        algorithm=f"Genetic Algorithm(tK={tournament_k}, CR={crossover_rate:.4f}, MRate={mutation_rate:.4f}, NP={population_size}, Gen={generation})",
+        short_name="GA-GC",
         problem=problem,
         time=total_time,
         last_x=population,
@@ -513,7 +516,7 @@ def genetic_algorithm_discrete(
     tournament_k: int = 3,
     crossover_rate: float = 0.9,
     mutation_rate: float = 0.1,
-    mutation_step: float = 1.0,
+    mutation_step: int = 1,
     rng_seed: int | None = None
 ) -> DiscreteResult:
     """

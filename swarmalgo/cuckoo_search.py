@@ -120,7 +120,8 @@ def cuckoo_search_continuous(
     best_x, best_value = history.get_best_value()
 
     return ContinuousResult(
-        algorithm="Cuckoo Search",
+        algorithm=f"Cuckoo Search(NP={population_size}, alpha={alpha}, beta={beta}, rate={discovery_rate}, gen={generation})",
+        short_name="CS",
         problem=problem,
         time=total_time,
         last_x=nests,
@@ -229,7 +230,8 @@ def cuckoo_search_discrete_tsp(
     best_x, best_value = history.get_best_value()
 
     return DiscreteResult(
-        algorithm="Cuckoo Search (TSP)",
+        algorithm=f"Cuckoo Search(NP={population_size}, alpha={alpha}, beta={beta}, rate={discovery_rate}, gen={generation})",
+        short_name="CS-TSP",
         problem=problem,
         time=total_time,
         last_x=nests,
@@ -340,7 +342,8 @@ def cuckoo_search_discrete_knapsack(
     best_x, best_value = history.get_best_value()
 
     return DiscreteResult(
-        algorithm="Cuckoo Search (Knapsack)",
+        algorithm=f"Cuckoo Search(NP={population_size}, alpha={alpha}, beta={beta}, rate={discovery_rate}, gen={generation})",
+        short_name="CS-KP",
         problem=problem,
         time=total_time,
         last_x=nests,
@@ -472,7 +475,8 @@ def cuckoo_search_discrete_graphcoloring(
     best_x, best_value = history.get_best_value()
 
     return DiscreteResult(
-        algorithm="Cuckoo Search (Graph Coloring)",
+        algorithm=f"Cuckoo Search(NP={population_size}, alpha={alpha}, beta={beta}, rate={discovery_rate}, gen={generation})",
+        short_name="CS-GC",
         problem=problem,
         time=total_time,
         last_x=nests,

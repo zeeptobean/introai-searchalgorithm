@@ -118,8 +118,8 @@ def aco_discrete_tsp(
                 next_city = unvisited[selected_idx]
                 
                 # Add to tour
-                tour.append(next_city)
-                visited.add(next_city)
+                tour.append(np.int64(next_city))
+                visited.add(np.int64(next_city))
                 current_city = next_city
             
             # Convert tour to numpy array
@@ -176,7 +176,8 @@ def aco_discrete_tsp(
     best_x, best_value = history.get_best_value()
     
     return DiscreteResult(
-        algorithm="Ant Colony Optimization (TSP)",
+        algorithm=f"Ant Colony Optimization(NP={num_ants}, gen={generation}, alpha={alpha}, beta={beta}, evap={evaporation_rate}, deposit={pheromone_deposit_weight}, init_pher={initial_pheromone})",
+        short_name="ACO-TSP",
         problem=problem,
         time=total_time,
         last_x=ant_tours,
@@ -359,7 +360,8 @@ def aco_discrete_knapsack(
     best_x, best_value = history.get_best_value()
     
     return DiscreteResult(
-        algorithm="Ant Colony Optimization (Knapsack)",
+        algorithm=f"Ant Colony Optimization(NP={num_ants}, gen={generation}, alpha={alpha}, beta={beta}, evap={evaporation_rate}, deposit={pheromone_deposit_weight}, init_pher={initial_pheromone})",
+        short_name="ACO-KP",
         problem=problem,
         time=total_time,
         last_x=ant_solutions,
@@ -559,7 +561,8 @@ def aco_discrete_graph_coloring(
     best_x, best_value = history.get_best_value()
     
     return DiscreteResult(
-        algorithm="Ant Colony Optimization (Graph Coloring)",
+        algorithm=f"Ant Colony Optimization(NP={num_ants}, gen={generation}, alpha={alpha}, beta={beta}, evap={evaporation_rate}, deposit={pheromone_deposit_weight}, init_pher={initial_pheromone})",
+        short_name="ACO-GC",
         problem=problem,
         time=total_time,
         last_x=ant_colorings,

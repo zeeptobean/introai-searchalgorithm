@@ -123,7 +123,8 @@ def abc_continuous(
     best_x, best_value = history.get_best_value()
 
     return ContinuousResult(
-        algorithm="Artificial Bee Colony",
+        algorithm=f"Artificial Bee Colony(NP={population_size}, Gen={generation}, Lim={limit})",
+        short_name="ABC",
         problem=problem,
         time=total_time,
         last_x=population,
@@ -254,7 +255,8 @@ def abc_discrete_tsp(
     best_x, best_value = history.get_best_value()
 
     return DiscreteResult(
-        algorithm="ABC-TSP",
+        algorithm=f"Artificial Bee Colony(NP={population_size}, Gen={generation}, Lim={limit})",
+        short_name="ABC-TSP",
         problem=problem,
         time=total_time,
         last_x=population,
@@ -382,7 +384,8 @@ def abc_discrete_knapsack(
     best_x, best_value = history.get_best_value()
 
     return DiscreteResult(
-        algorithm="ABC-Knapsack",
+        algorithm=f"Artificial Bee Colony(NP={population_size}, Gen={generation}, Lim={limit})",
+        short_name="ABC-KP",
         problem=problem,
         time=total_time,
         last_x=population,
@@ -522,7 +525,8 @@ def abc_discrete_graphcoloring(
     best_x, best_value = history.get_best_value()
 
     return DiscreteResult(
-        algorithm="ABC-GraphColoring",
+        algorithm=f"Artificial Bee Colony(NP={population_size}, Gen={generation}, Lim={limit})",
+        short_name="ABC-GC",
         problem=problem,
         time=total_time,
         last_x=population,
@@ -540,7 +544,7 @@ def abc_discrete(
     population_size: int = 50,
     generation: int = 100,
     limit: int = 10,
-    step_size: Float = 1.0,
+    step_size: int = 1,
     rng_seed: int | None = None
 ) -> DiscreteResult:
     """
@@ -637,7 +641,8 @@ def abc_discrete(
         best_x, best_value = history.get_best_value()
 
         return DiscreteResult(
-            algorithm="Artificial Bee Colony",
+            algorithm=f"Artificial Bee Colony(NP={population_size}, Gen={generation}, Lim={limit})",
+            short_name="ABC",
             problem=problem,
             time=total_time,
             last_x=population,
