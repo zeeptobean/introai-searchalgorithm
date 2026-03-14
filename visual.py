@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 import plotly.colors as pc
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+import matplotlib.colors as mcolors
 from plotly.subplots import make_subplots
 from IPython.display import display, HTML
 from function.discrete_function import *
@@ -299,7 +300,6 @@ class ContinuousResultVisualizer:
         )
         
         fig.show()
-        return fig
     
 def visualize_convergence(result: ContinuousResult | DiscreteResult, dark_theme: bool = False):
     history = result.history
@@ -546,7 +546,7 @@ def visualize_convergence_multiple(
     
     return fig
 
-def visualize_knapsack(result: 'DiscreteResult', dark_theme: bool = False) -> None:
+def visualize_knapsack(result: 'DiscreteResult', dark_theme: bool = False):
     smooth_transition_threshold = 300
     history = result.history
     iterations: int = len(history.history_x)
@@ -687,7 +687,8 @@ def visualize_knapsack(result: 'DiscreteResult', dark_theme: bool = False) -> No
     fig.update_yaxes(autorange="reversed", row=2, col=1) 
     fig.update_xaxes(title_text="Iteration", row=2, col=1)
 
-    fig.show()
+    return fig
+    # fig.show()
 
 def visualize_graph_coloring(result: DiscreteResult) -> None:
     """
@@ -1018,3 +1019,145 @@ def visualize_tsp(result: DiscreteResult, dark_theme: bool = False) -> go.Figure
     
     fig.show()
     return fig
+
+def visualize_grid_search(
+    result: SearchResult,
+    canvas_size: tuple[float, float] = (8, 8),
+    dark_theme: bool = False,
+    show_axes: bool = False,
+    ax = None,
+    show: bool = True
+):
+    """
+    Visualize a 2D GridWorld search result (BFS/DFS/A*).
+    
+    Args:
+        result: The search result to visualize.
+        canvas_size: Size of the matplotlib figure in inches.
+        dark_theme: Whether to use a dark theme for the visualization.
+        show_axes: Whether to display row/column indices on the axes.
+        show: Whether to call plt.show() to display the figure immediately.
+    """
+
+    problem = result.problem
+    grid = problem.grid
+
+    new_figure = ax is None
+
+    # Theme
+    if dark_theme:
+        if new_figure: plt.style.use("dark_background")
+        free_color = "#444444"
+        obstacle_color = "#000000"
+        path_color = "#4aa3ff"
+        start_color = "#00cc66"
+        goal_color = "#ff4d4d"
+        text_color = "white"
+    else:
+        if new_figure: plt.style.use("default")
+        free_color = "#ffffff"
+        obstacle_color = "#000000"
+        path_color = "#1f77b4"
+        start_color = "#2ca02c"
+        goal_color = "#d62728"
+        text_color = "black"
+
+    # Build image map: 0=free, 1=obstacle
+    cmap = mcolors.ListedColormap([free_color, obstacle_color])
+
+    if new_figure:
+        fig, ax = plt.subplots(figsize=canvas_size)
+    else:
+        fig = ax.figure
+    ax.imshow(grid, cmap=cmap, origin="upper", interpolation="nearest")
+
+    # Draw cell borders
+    ax.set_xticks(np.arange(-0.5, problem.cols, 1), minor=True)
+    ax.set_yticks(np.arange(-0.5, problem.rows, 1), minor=True)
+    ax.grid(which="minor", color="gray", linewidth=0.5, alpha=0.35)
+    ax.tick_params(which="minor", bottom=False, left=False)
+
+    # Path overlay
+    if result.path:
+        ys = [p[0] for p in result.path]  # row
+        xs = [p[1] for p in result.path]  # col
+        ax.plot(xs, ys, color=path_color, linewidth=2.5, marker="o", markersize=4, label="Path")
+
+    # Start/Goal markers
+    sr, sc = problem.start
+    gr, gc = problem.goal
+    ax.scatter(sc, sr, s=120, c=start_color, edgecolors="black", linewidths=1, marker="o", label="Start", zorder=3)
+    ax.scatter(gc, gr, s=120, c=goal_color, edgecolors="black", linewidths=1, marker="*", label="Goal", zorder=3)
+
+    # Labels and title
+    if show_axes:
+        ax.set_xticks(np.arange(problem.cols))
+        ax.set_yticks(np.arange(problem.rows))
+        ax.set_xlabel("Column")
+        ax.set_ylabel("Row")
+    else:
+        ax.set_xticks([])
+        ax.set_yticks([])
+
+    status = "Success" if result.success else "No Path"
+    ax.set_title(
+        f"{result.algorithm} | {status}\n"
+        f"Cost={result.cost:.3f} | Length={result.path_length} | Expanded={result.nodes_expanded} | Time={result.time:.3f} ms",
+        color=text_color
+    )
+
+    ax.legend(loc="upper left", bbox_to_anchor=(1.02, 1.0))
+    
+    if new_figure:
+        fig.tight_layout()
+        if show:
+            plt.show()
+
+    return fig, ax
+
+def visualize_grid_search_multiple(
+    results: list[SearchResult],
+    ncols: int = 2,
+    dark_theme: bool = False,
+    show_axes: bool = False,
+):
+    """
+    Display multiple GridWorld search visualizations in a subplot grid.
+
+    Args:
+        results: List of SearchResult objects to visualize.
+        ncols: Number of columns in the subplot grid.
+        dark_theme: Whether to use a dark theme for the visualizations.
+        show_axes: Whether to display row/column indices on the axes for each subplot.
+    """
+    if len(results) == 0:
+        raise ValueError("results must not be empty.")
+    
+    cell_size: tuple[float, float] = (7, 7)
+    nrows = math.ceil(len(results) / ncols)
+
+    style_name = "dark_background" if dark_theme else "default"
+    with plt.style.context(style_name):
+        fig, axes = plt.subplots(
+            nrows, ncols,
+            figsize=(cell_size[0] * ncols, cell_size[1] * nrows)
+        )
+
+        axes = np.array(axes).reshape(-1)
+
+        for i, result in enumerate(results):
+            visualize_grid_search(
+                result=result,
+                dark_theme=dark_theme,
+                show_axes=show_axes,
+                ax=axes[i],
+                show=False
+            )
+
+        # Hide any unused subplot cells
+        for j in range(len(results), len(axes)):
+            axes[j].axis("off")
+
+        fig.tight_layout()
+        plt.show()
+        return fig, axes
