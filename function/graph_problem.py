@@ -41,6 +41,26 @@ class GridWorldProblem:
             return self.grid[row, col] == 0
         return False
     
+    @staticmethod
+    def generate(rows: int = 10, cols: int = 10, obstacle_ratio: float = 0.2, seed: int | None = None) -> 'GridWorldProblem':
+        rng = RNGWrapper(seed=seed)
+        
+        grid = np.zeros((rows, cols), dtype=int)
+        
+        # Add random obstacles
+        num_obstacles = int(rows * cols * obstacle_ratio)
+        for _ in range(num_obstacles):
+            r, c = rng.randint(0, rows), rng.randint(0, cols)
+            grid[r, c] = 1
+        
+        # Ensure start and goal are not blocked
+        start = (0, 0)
+        goal = (rows - 1, cols - 1)
+        grid[start] = 0
+        grid[goal] = 0
+
+        return GridWorldProblem(grid, start, goal)
+    
     def get_neighbors(self, pos: Tuple[int, int]) -> List[Tuple[int, int]]:
         """
         Get valid neighboring positions (up, down, left, right).
@@ -204,15 +224,14 @@ def create_simple_grid(rows: int = 10, cols: int = 10, obstacle_ratio: float = 0
     Returns:
         Tuple of (grid, start_pos, goal_pos)
     """
-    if seed is not None:
-        np.random.seed(seed)
+    rng = RNGWrapper(seed=seed)
     
     grid = np.zeros((rows, cols), dtype=int)
     
     # Add random obstacles
     num_obstacles = int(rows * cols * obstacle_ratio)
     for _ in range(num_obstacles):
-        r, c = np.random.randint(0, rows), np.random.randint(0, cols)
+        r, c = rng.randint(0, rows), rng.randint(0, cols)
         grid[r, c] = 1
     
     # Ensure start and goal are not blocked

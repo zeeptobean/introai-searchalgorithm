@@ -22,6 +22,9 @@ class RNGWrapper:
     def random(self) -> Float:
         return self.rng.random()
     
+    def randint(self, low: int, high: int, size: int | None = None) -> int | IntVector:
+        return self.rng.integers(low, high, size=size)
+    
     def get_seed(self) -> int:
         return self._seed
     
