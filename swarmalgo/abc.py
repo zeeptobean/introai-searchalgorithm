@@ -84,8 +84,7 @@ def abc_continuous(
             1.0 / (1.0 + fitness),
             1.0 + np.abs(fitness)
         )
-        probabilities = 1.0 / (transformed_fitness + 1e-9) 
-        probabilities /= np.sum(probabilities)
+        probabilities = transformed_fitness / np.sum(transformed_fitness)
 
         for _ in range(num_employed): # Onlookers = employed bees
             # Select a food source based on probability (roulette wheel selection)
@@ -96,8 +95,16 @@ def abc_continuous(
             partner = population[partner_idx]
             
             # Generate a new candidate solution
-            phi = rng_wrapper.rng.uniform(-1, 1, size=problem.dimension)
-            new_solution = population[i] + phi * (population[i] - partner)
+            if single_dimension_update:
+                j = rng_wrapper.rng.integers(0, problem.dimension)
+                phi = rng_wrapper.rng.uniform(-1, 1)
+
+                new_solution = population[i].copy()
+                new_solution[j] += phi * (population[i][j] - partner[j])
+            else:
+                phi = rng_wrapper.rng.uniform(-1, 1, size=problem.dimension)
+                new_solution = population[i] + phi * (population[i] - partner)
+
             new_solution = np.clip(new_solution, lower_bound, upper_bound)
             new_fitness = problem.evaluate(new_solution)
             
@@ -112,7 +119,7 @@ def abc_continuous(
         # Scout Bee Phase
         # reset if trial exceeds limit
         for i in range(num_employed):
-            if trials[i] > limit:
+            if trials[i] >= limit:
                 population[i] = rng_wrapper.uniform(lower_bound, upper_bound, size=problem.dimension)
                 fitness[i] = problem.evaluate(population[i])
                 trials[i] = 0
