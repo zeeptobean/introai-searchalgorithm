@@ -1,8 +1,9 @@
 from util.define import *
 from util.util import *
 import numpy as np
-from util.result import DiscreteResult
-from function.discrete_function import DiscreteProblem, TSPFunction, KnapsackFunction, GraphColoringFunction
+from util.result import *
+from function.discrete_function import *
+from function.continuous_function import *
 
 def aco_discrete_tsp(
     problem: DiscreteProblem,
@@ -659,3 +660,125 @@ def aco_discrete(
             initial_pheromone=initial_pheromone,
             rng_seed=rng_seed
         )
+
+def aco_continuous(
+    problem: ContinuousProblem,
+    archive_size: int = 50,
+    generation: int = 100,
+    sample_size: int = 25,
+    q: float = 0.5,
+    xi: float = 0.85,
+    rng_seed: int | None = None
+) -> ContinuousResult:
+    """
+    Ant Colony Optimization for Continuous Domains (ACOR).
+
+    Args:
+        problem: Continuous optimization problem.
+        archive_size: Number of solutions kept in the solution archive (k).
+        generation: Number of iterations.
+        sample_size: Number of new samples generated per iteration (m).
+        q: Selection pressure parameter for Gaussian weights.
+        xi: Kernel width scaling factor.
+        rng_seed: Random seed.
+
+    Returns:
+        ContinuousResult with optimization history.
+    """
+    if archive_size <= 1:
+        raise ValueError("archive_size must be > 1")
+    if generation <= 0:
+        raise ValueError("generation must be positive")
+    if sample_size <= 0:
+        raise ValueError("sample_size must be positive")
+    if q <= 0:
+        raise ValueError("q must be positive")
+    if xi <= 0:
+        raise ValueError("xi must be positive")
+
+    rng_wrapper = RNGWrapper(rng_seed)
+    timer = TimerWrapper()
+    timer.start()
+
+    lower_bound = problem.lower_bound if problem.lower_bound is not None else -100.0
+    upper_bound = problem.upper_bound if problem.upper_bound is not None else 100.0
+    dim = problem.dimension
+    k = archive_size
+
+    xlist: list[FloatVector] = [
+        rng_wrapper.uniform(lower_bound, upper_bound, size=dim) for _ in range(k)
+    ]
+    flist = np.array([problem.evaluate(x) for x in xlist], dtype=float)
+
+    # Sort by fitness (minimization)
+    order = np.argsort(flist)
+    xlist = [xlist[i] for i in order]
+    flist = flist[order]
+
+    history = HistoryEntry()
+    history.add([x.copy() for x in xlist], list(flist))
+
+    # Precompute rank-based weights for selecting Gaussian centers
+    ranks = np.arange(k, dtype=float)
+    sigma_rank = q * k
+    weights = (1.0 / (sigma_rank * np.sqrt(2.0 * np.pi))) * np.exp(
+        -(ranks ** 2) / (2.0 * sigma_rank * sigma_rank)
+    )
+    probabilities = weights / np.sum(weights)
+
+    for _ in range(generation):
+        new_x: list[FloatVector] = []
+        new_f: list[Float] = []
+
+        archive_matrix = np.array(xlist)  # shape: (k, dim)
+
+        for _s in range(sample_size):
+            # Select kernel center by roulette wheel
+            center_idx = int(rng_wrapper.rng.choice(k, p=probabilities))
+            mu = archive_matrix[center_idx]
+
+            # Dimension-wise sigma from archive dispersion around selected center
+            # sigma_j = xi * (sum_r |x_rj - x_center_j|) / (k - 1)
+            diff = np.abs(archive_matrix - mu)  # shape: (k, dim)
+            sigma = xi * np.sum(diff, axis=0) / (k - 1)
+
+            # Avoid zero-variance collapse
+            eps = 1e-12
+            sigma = np.maximum(sigma, eps)
+
+            candidate = rng_wrapper.rng.normal(loc=mu, scale=sigma, size=dim)
+            candidate = np.clip(candidate, lower_bound, upper_bound)
+
+            fval = problem.evaluate(candidate)
+
+            new_x.append(candidate)
+            new_f.append(fval)
+
+        # Merge and keep best k
+        merged_x = xlist + new_x
+        merged_f = np.concatenate([flist, np.array(new_f, dtype=float)])
+
+        order = np.argsort(merged_f)
+        keep = order[:k]
+
+        xlist = [merged_x[i] for i in keep]
+        flist = merged_f[keep]
+
+        history.add([x.copy() for x in xlist], list(flist))
+
+    total_time = timer.stop()
+    best_x, best_value = history.get_best_value()
+
+    return ContinuousResult(
+        algorithm=f"ACOR(k={archive_size}, Gen={generation}, m={sample_size}, q={q}, xi={xi})",
+        short_name="ACOR",
+        problem=problem,
+        time=total_time,
+        last_x=xlist,
+        last_value=list(flist),
+        best_x=best_x,
+        best_value=best_value,
+        iterations=generation,
+        rng_seed=rng_wrapper.get_seed(),
+        history=history
+    )
