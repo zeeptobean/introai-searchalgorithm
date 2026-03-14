@@ -690,7 +690,7 @@ def visualize_knapsack(result: 'DiscreteResult', dark_theme: bool = False):
     return fig
     # fig.show()
 
-def visualize_graph_coloring(result: DiscreteResult) -> None:
+def visualize_graph_coloring(result: DiscreteResult, dark_theme: bool = False) -> None:
     """
     Visualizes the result of a graph coloring optimization.
     """
@@ -698,13 +698,15 @@ def visualize_graph_coloring(result: DiscreteResult) -> None:
     if not isinstance(result.problem, GraphColoringFunction):
         raise TypeError("Result problem must be an instance of GraphColoringFunction to visualize.")
 
+    plotly_template: str = "plotly_dark" if dark_theme else "plotly_white"
+
     adj_matrix = result.problem.adjacency_matrix
     
     # 2. Build the NetworkX graph and calculate layout
     G = nx.from_numpy_array(adj_matrix)
     
-    # Use the RNG seed from the result to keep the layout reproducible
-    pos = nx.spring_layout(G, seed=result.rng_seed, k=0.5, iterations=50) 
+    seed = int(result.rng_seed) % (2**32)
+    pos = nx.spring_layout(G, seed=seed, k=0.5, iterations=50) 
 
     # 3. Create Edge Trace
     edge_x: list[float | None] = []
@@ -760,7 +762,7 @@ def visualize_graph_coloring(result: DiscreteResult) -> None:
         data=[edge_trace, node_trace],
         layout=go.Layout(
             title=dict(
-                text=f'Graph Coloring Solution<br><sup>Total Colors Used: {int(result.best_value)}</sup>',
+                text=f'Graph Coloring: {result.problem.dimension} node(s)<br><sup>{result.algorithm} | Colors used: {int(result.best_value)} | Runtime: {result.time:.4f}ms</sup>',
                 font=dict(size=20)
             ),
             showlegend=False,
@@ -768,16 +770,11 @@ def visualize_graph_coloring(result: DiscreteResult) -> None:
             margin=dict(b=20, l=20, r=20, t=60),
             xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
             yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-            plot_bgcolor='white'
+            template=plotly_template
         )
     )
 
     fig.show()
-
-import numpy as np
-import numpy.typing as npt
-import networkx as nx
-import plotly.graph_objects as go
 
 def visualize_tsp(
     result: DiscreteResult,
