@@ -129,8 +129,11 @@ class GridWorldProblem:
     
     def evaluate_path(self, path: List[Tuple[int, int]]) -> Float:
         """Calculate path cost (used as objective value)"""
-        if not path or len(path) < 2:
-            return float('inf')
+        if not path:
+            return float('inf')  # Empty path means no solution
+        
+        if len(path) == 1:
+            return 0.0  # Start == Goal, no movement needed
         
         total_cost = 0.0
         for i in range(len(path) - 1):
