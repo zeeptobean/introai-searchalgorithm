@@ -6,9 +6,11 @@ import plotly.graph_objects as go
 import plotly.colors as pc
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+import matplotlib.colors as mcolors
 from plotly.subplots import make_subplots
 from IPython.display import display, HTML
 from function.discrete_function import *
+from function.continuous_function import *
 from util.result import *
 from util.define import *
 from util.util import *
@@ -298,7 +300,6 @@ class ContinuousResultVisualizer:
         )
         
         fig.show()
-        return fig
     
 def visualize_convergence(result: ContinuousResult | DiscreteResult, dark_theme: bool = False):
     history = result.history
@@ -338,7 +339,7 @@ def visualize_convergence(result: ContinuousResult | DiscreteResult, dark_theme:
     # --- 2. Build the Plotly Figure ---
     fig = go.Figure()
 
-    best_line_name = 'Best Value' if num_agents > 1 else 'Current Value'
+    best_line_name = "Swarms Best Value" if num_agents > 1 else 'Current Value'
     best_line_width = 3 if iterations < 300 else 1 
     
     fig.add_trace(
@@ -368,7 +369,7 @@ def visualize_convergence(result: ContinuousResult | DiscreteResult, dark_theme:
         fig.add_trace(
             go.Scatter(
                 x=list(range(iterations)), y=avg_vals, 
-                mode='lines', name='Average Value', 
+                mode='lines', name='Average Swarms Value', 
                 line=dict(color='#f39c12', width=2, dash='dash'),
                 connectgaps=True
             )
@@ -391,7 +392,161 @@ def visualize_convergence(result: ContinuousResult | DiscreteResult, dark_theme:
 
     fig.show()
 
-def visualize_knapsack(result: 'DiscreteResult', dark_theme: bool = False) -> None:
+def visualize_runtime_vs_best(
+    results: list[ContinuousResult] | list[DiscreteResult] | list[ContinuousResult | DiscreteResult],
+    dark_theme: bool = False
+) -> go.Figure:
+    """
+    Compare runtime (bar) vs best convergence value (line) in a single figure.
+    """
+
+    plotly_template: str = "plotly_dark" if dark_theme else "plotly_white"
+
+    problem: ContinuousProblem | DiscreteProblem | None = None
+    for obj in results:
+        if problem is None:
+            problem = obj.problem
+        elif obj.problem != problem:
+            raise ValueError("All results must be from the same problem for a meaningful comparison.")
+
+    labels = [r.short_name for r in results]
+    runtimes = [float(r.time) for r in results]  # ms
+    best_vals = [float(r.best_value) for r in results]
+
+    fig = go.Figure()
+
+    # Bar: runtime (left axis)
+    fig.add_trace(
+        go.Bar(
+            x=labels,
+            y=runtimes,
+            name="Runtime (ms)",
+            marker_color="#2cebe5",
+            yaxis="y1",
+            hovertemplate="Alg: %{x}<br>Runtime: %{y:.2f} ms<extra></extra>"
+        )
+    )
+
+    # Line: best value (right axis)
+    fig.add_trace(
+        go.Scatter(
+            x=labels,
+            y=best_vals,
+            mode="lines+markers",
+            name="Best Value",
+            line=dict(color="#dc0000", width=3),
+            marker=dict(size=8),
+            yaxis="y2",
+            hovertemplate="Alg: %{x}<br>Best: %{y:.6g}<extra></extra>"
+        )
+    )
+
+    fig.update_layout(
+        title_text=f"Runtime vs Best Value Comparison<br><sup>{str(problem)}</sup>",
+        template=plotly_template,
+        barmode="group",
+        yaxis=dict(title="Runtime (ms)", showgrid=False),
+        yaxis2=dict(title="Best Value", overlaying="y", side="right", showgrid=False),
+        xaxis=dict(title="Algorithm"),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        height=600
+    )
+
+    return fig
+
+def visualize_convergence_multiple(
+    results: list[ContinuousResult] | list[DiscreteResult] | list[ContinuousResult | DiscreteResult], 
+    dark_theme: bool = False
+):
+    """
+    Visualize convergence curves for multiple optimization results.
+    Only plots the best value line for each result.
+    
+    Args:
+        results: List of optimization results to compare
+        dark_theme: Whether to use dark theme
+    """
+    
+    # Theme Configuration
+    plotly_template: str = "plotly_dark" if dark_theme else "plotly_white"
+    
+    # Generate distinct colors for each line
+    colors = ['#2ecc71', '#3498db', '#e74c3c', '#f39c12', '#9b59b6', 
+              '#1abc9c', '#e67e22', '#95a5a6', '#34495e', '#d35400']
+    
+    fig = go.Figure()
+
+    problem: ContinuousProblem | DiscreteProblem | None = None
+    for obj in results:
+        if problem is None:
+            problem = obj.problem
+        elif obj.problem != problem:
+            raise ValueError("All results must be from the same problem for a meaningful comparison.")
+    
+    # Process each result
+    for idx, result in enumerate(results):
+        history_value = result.history.history_value
+        iterations: int = len(history_value)
+        
+        # Extract best values per iteration
+        best_vals: list[float] = []
+        for gen in history_value:
+            valid_fitnesses: list[float] = [
+                float(v) for v in gen 
+                if v is not None and not math.isnan(float(v))
+            ]
+            
+            if valid_fitnesses:
+                if isinstance(result.problem, DiscreteProblem) and result.problem.is_max_value_problem():
+                    best_vals.append(max(valid_fitnesses))
+                else:
+                    best_vals.append(min(valid_fitnesses))
+            else:
+                best_vals.append(math.nan)
+        
+        # Determine line width based on number of iterations
+        line_width = 3 if iterations < 300 else 2
+        
+        # Add trace for this result
+        fig.add_trace(
+            go.Scatter(
+                x=list(range(iterations)),
+                y=best_vals,
+                mode='lines',
+                name=f'{result.short_name} (best: {result.best_value:.6f})',
+                line=dict(color=colors[idx % len(colors)], width=line_width),
+                connectgaps=True,
+                hovertemplate=(
+                    f"<b>{result.algorithm}</b><br>"
+                    "Value: %{y}<br>"
+                    "<extra></extra>"
+                )
+            )
+        )
+    
+    # Layout configuration
+    fig.update_layout(
+        title_text=(
+            f"Convergence Comparison<br>"
+            f"<sup>{str(problem)}</sup>"
+        ),
+        template=plotly_template,
+        hovermode="x unified",
+        showlegend=True,
+        legend=dict(
+            orientation="v",
+            yanchor="top",
+            y=0.99,
+            xanchor="left",
+            x=1.02
+        ),
+        xaxis_title="Iteration",
+        yaxis_title="Best Objective Value",
+    )
+    
+    return fig
+
+def visualize_knapsack(result: 'DiscreteResult', dark_theme: bool = False):
     smooth_transition_threshold = 300
     history = result.history
     iterations: int = len(history.history_x)
@@ -457,7 +612,7 @@ def visualize_knapsack(result: 'DiscreteResult', dark_theme: bool = False) -> No
     )
 
     # Top Plot: Convergence Lines
-    best_line_name = 'Best Value' if num_agents > 1 else 'Current Value'
+    best_line_name = "Swarms Best Value" if num_agents > 1 else 'Current Value'
     best_line_width = 3 if iterations < smooth_transition_threshold else 1 
     
     fig.add_trace(
@@ -477,7 +632,7 @@ def visualize_knapsack(result: 'DiscreteResult', dark_theme: bool = False) -> No
                 x=[first_best_idx], 
                 y=[overall_best_val], 
                 mode='markers', 
-                name=f'First Best ({overall_best_val})', 
+                name=f'First Global Best ({overall_best_val})', 
                 marker=dict(symbol='star', size=16, color='gold', line=dict(color='black', width=1)),
                 hovertemplate="Iteration: %{x}<br>Best Value: %{y}<extra></extra>"
             ),
@@ -489,7 +644,7 @@ def visualize_knapsack(result: 'DiscreteResult', dark_theme: bool = False) -> No
         fig.add_trace(
             go.Scatter(
                 x=list(range(iterations)), y=avg_vals, 
-                mode='lines', name='Average Value', 
+                mode='lines', name='Swarms Average Value', 
                 line=dict(color='#f39c12', width=2, dash='dash'),
                 connectgaps=True
             ),
@@ -532,7 +687,8 @@ def visualize_knapsack(result: 'DiscreteResult', dark_theme: bool = False) -> No
     fig.update_yaxes(autorange="reversed", row=2, col=1) 
     fig.update_xaxes(title_text="Iteration", row=2, col=1)
 
-    fig.show()
+    return fig
+    # fig.show()
 
 def visualize_graph_coloring(result: DiscreteResult) -> None:
     """
@@ -617,3 +773,391 @@ def visualize_graph_coloring(result: DiscreteResult) -> None:
     )
 
     fig.show()
+
+import numpy as np
+import numpy.typing as npt
+import networkx as nx
+import plotly.graph_objects as go
+
+def visualize_tsp(result: DiscreteResult, dark_theme: bool = False) -> go.Figure:
+    """
+    Creates an interactive Plotly visualization for TSP agents.
+    Features: Agent selection, iteration animation, edge weights, 
+    start highlighting, directional arrows, and dynamically updated info text.
+    
+    Args:
+        result: DiscreteResult containing the TSP problem and optimization history.
+        dark_theme: If True, sets the visualization to a dark theme.
+    """
+    if not isinstance(result.problem, TSPFunction):
+        raise TypeError("Result problem must be an instance of TSPFunction to visualize.")
+
+    # --- Theme Configuration ---
+    if dark_theme:
+        plotly_template = "plotly_dark"
+        bg_color = "rgb(17,17,17)"
+        font_color = "white"
+        edge_weight_color = "lightgray"
+        arrow_color = "#FFA07A" # Lighter coral for dark mode
+    else:
+        plotly_template = "plotly_white"
+        bg_color = "white"
+        font_color = "black"
+        edge_weight_color = "gray"
+        arrow_color = "coral"
+
+    dist_matrix = result.problem.distance_matrix
+    dimension = result.problem.dimension
+    history_x = result.history.history_x
+    history_val = result.history.history_value
+    best_overall_val = result.best_value
+    
+    num_iters = len(history_x)
+    num_agents = len(history_x[0]) if num_iters > 0 else 0
+
+    # 1. Calculate Graph Layout
+    G = nx.from_numpy_array(dist_matrix)
+    pos = nx.circular_layout(G) 
+    
+    node_x = [pos[i][0] for i in range(dimension)]
+    node_y = [pos[i][1] for i in range(dimension)]
+    
+    # Coordinates for the Info Text Panel - Moved higher to act as a Subtitle
+    # The graph circle peaks at y=1.0, so y=1.35 gives plenty of clearance.
+    info_x = -1.45
+    info_y = 1.35
+
+    fig = go.Figure()
+
+    # Trace 0: The Nodes (Cities)
+    fig.add_trace(go.Scatter(
+        x=node_x, y=node_y, 
+        mode='markers+text',
+        text=[f"City {i}" for i in range(dimension)],
+        textposition="bottom center",
+        marker=dict(size=12, color='lightblue', line=dict(width=2, color='black')),
+        name='Cities',
+        hoverinfo='text'
+    ))
+
+    for k in range(num_agents):
+        path = [int(n) for n in history_x[0][k]]
+        path_closed = path + [path[0]] # Wrap back to the first node
+        px = [pos[n][0] for n in path_closed]
+        py = [pos[n][1] for n in path_closed]
+        
+        # Color coding: Start (Green). Rest (Coral). 
+        colors = ['#00CC96'] + ['coral'] * (len(path) - 1) + ['rgba(0,0,0,0)']
+        sizes = [16] + [8] * (len(path) - 1) + [0]
+
+        # Trace Group A: Agent Paths (Traces 1 to N)
+        fig.add_trace(go.Scatter(
+            x=px, y=py,
+            mode='lines+markers',
+            line=dict(width=3, color='coral'),
+            marker=dict(color=colors, size=sizes, line=dict(width=1, color='black')),
+            visible=(k == 0),
+            name=f'Agent {k} Path'
+        ))
+        
+    for k in range(num_agents):
+        path = [int(n) for n in history_x[0][k]]
+        path_closed = path + [path[0]]
+        mid_x, mid_y, edge_weights, angles = [], [], [], []
+        
+        for i in range(len(path_closed) - 1):
+            n1, n2 = path_closed[i], path_closed[i+1]
+            x1, y1 = pos[n1][0], pos[n1][1]
+            x2, y2 = pos[n2][0], pos[n2][1]
+            
+            mid_x.append((x1 + x2) / 2)
+            mid_y.append((y1 + y2) / 2)
+            edge_weights.append(f"{dist_matrix[n1][n2]:.1f}")
+            
+            # Calculate angle for the directional arrow (Plotly angles rotate clockwise)
+            angle_deg = np.degrees(np.arctan2(y2 - y1, x2 - x1))
+            angles.append(-angle_deg) 
+
+        # Trace Group B: Edge Weights & Arrows (Traces N+1 to 2N)
+        fig.add_trace(go.Scatter(
+            x=mid_x, y=mid_y,
+            mode='text+markers',
+            text=edge_weights,
+            textposition='top center',
+            textfont=dict(size=11, color=edge_weight_color),
+            marker=dict(symbol='triangle-right', size=14, color=arrow_color, angle=angles, line=dict(width=1, color='darkred')),
+            visible=(k == 0),
+            showlegend=False,
+            hoverinfo='skip'
+        ))
+        
+    for k in range(num_agents):
+        val = history_val[0][k]
+        path = [int(n) for n in history_x[0][k]]
+        
+        # Formatted horizontally to look like a clean subtitle underneath the main title
+        info_text = (f"<b>Start Node:</b> City {path[0]}   |   "
+                     f"<b>Config Value:</b> {val:.2f}   |   "
+                     f"<b>Global Best:</b> {best_overall_val:.2f}")
+        
+        # Trace Group C: Status Info Text (Traces 2N+1 to 3N)
+        fig.add_trace(go.Scatter(
+            x=[info_x], y=[info_y],
+            mode='text',
+            text=[info_text],
+            textposition="top right", # Draws the text UPWARDS away from the graph
+            textfont=dict(size=14, color=font_color),
+            visible=(k == 0),
+            name=f'Agent {k} Info',
+            showlegend=False,
+            hoverinfo='skip'
+        ))
+
+    # 2. Build Frames for Animation
+    frames = []
+    for t in range(num_iters):
+        frame_data = []
+        
+        # 1. Update Paths
+        for k in range(num_agents):
+            path = [int(n) for n in history_x[t][k]]
+            path_closed = path + [path[0]]
+            px = [pos[n][0] for n in path_closed]
+            py = [pos[n][1] for n in path_closed]
+            
+            colors = ['#00CC96'] + ['coral'] * (len(path) - 1) + ['rgba(0,0,0,0)']
+            sizes = [16] + [8] * (len(path) - 1) + [0]
+            
+            frame_data.append(go.Scatter(x=px, y=py, marker=dict(color=colors, size=sizes)))
+            
+        # 2. Update Edge Weights & Arrows
+        for k in range(num_agents):
+            path = [int(n) for n in history_x[t][k]]
+            path_closed = path + [path[0]]
+            mid_x, mid_y, edge_weights, angles = [], [], [], []
+            for i in range(len(path_closed) - 1):
+                n1, n2 = path_closed[i], path_closed[i+1]
+                x1, y1 = pos[n1][0], pos[n1][1]
+                x2, y2 = pos[n2][0], pos[n2][1]
+                
+                mid_x.append((x1 + x2) / 2)
+                mid_y.append((y1 + y2) / 2)
+                edge_weights.append(f"{dist_matrix[n1][n2]:.1f}")
+                
+                angle_deg = np.degrees(np.arctan2(y2 - y1, x2 - x1))
+                angles.append(-angle_deg)
+                
+            frame_data.append(go.Scatter(x=mid_x, y=mid_y, text=edge_weights, marker=dict(angle=angles)))
+            
+        # 3. Update Status Info Text (Horizontal Format)
+        for k in range(num_agents):
+            val = history_val[t][k]
+            path = [int(n) for n in history_x[t][k]]
+            info_text = (f"<b>Start Node:</b> City {path[0]}   |   "
+                         f"<b>Config Value:</b> {val:.2f}   |   "
+                         f"<b>Global Best:</b> {best_overall_val:.2f}")
+            
+            frame_data.append(go.Scatter(x=[info_x], y=[info_y], text=[info_text]))
+            
+        trace_indices = list(range(1, 3 * num_agents + 1))
+        frames.append(go.Frame(data=frame_data, name=str(t), traces=trace_indices))
+        
+    fig.frames = frames
+
+    # 3. Create Dropdown to select Agents
+    agent_buttons = []
+    for k in range(num_agents):
+        visible_array = [True] + \
+                        [i == k for i in range(num_agents)] + \
+                        [i == k for i in range(num_agents)] + \
+                        [i == k for i in range(num_agents)]
+        agent_buttons.append(dict(
+            label=f"Agent {k}", method="update",
+            args=[{"visible": visible_array}, {"title": f"Path Visualization: TSP(cities={result.problem.dimension}); Agent {k}; runtime={result.time:.2f}ms<br><sup>{result.algorithm}; rngseed={result.rng_seed}</sup>"}]
+        ))
+
+    # 4. Final Layout config
+    fig.update_layout(
+        title=dict(text=f"Path Visualization: TSP(cities={result.problem.dimension}); Agent 0; runtime={result.time:.2f}ms<br><sup>{result.algorithm}; rngseed={result.rng_seed}</sup>", font=dict(color=font_color)),
+        template=plotly_template,
+        plot_bgcolor=bg_color,
+        paper_bgcolor=bg_color,
+        updatemenus=[
+            # Play / Pause Buttons
+            dict(
+                type="buttons", direction="right", showactive=False,
+                x=0.0, y=-0.1, xanchor="left", yanchor="top",
+                buttons=[
+                    dict(label="Play", method="animate", args=[None, dict(frame=dict(duration=800, redraw=True), fromcurrent=True)]),
+                    dict(label="Pause", method="animate", args=[[None], dict(frame=dict(duration=0, redraw=False), mode="immediate")])
+                ],
+                font=dict(color=font_color)
+            ),
+            # Agent Dropdown
+            dict(
+                buttons=agent_buttons, direction="up", showactive=True,
+                x=0.15, y=-0.1, xanchor="left", yanchor="top",
+                font=dict(color=font_color)
+            )
+        ],
+        sliders=[dict(
+            steps=[dict(
+                method='animate', 
+                args=[[str(t)], dict(mode='immediate', frame=dict(duration=800, redraw=True))], 
+                label=f"Iter {t}"
+            ) for t in range(num_iters)],
+            x=0.3, y=-0.1, len=0.7, xanchor="left", yanchor="top",
+            font=dict(color=font_color)
+        )],
+        # Extended yaxis to 1.6 to ensure the new "Subtitle" trace has plenty of space
+        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-1.5, 1.5]),
+        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-1.4, 1.6], scaleanchor="x", scaleratio=1),
+        height=800,
+        width=1200,
+        margin=dict(b=100) 
+    )
+    
+    fig.show()
+    return fig
+
+def visualize_grid_search(
+    result: SearchResult,
+    canvas_size: tuple[float, float] = (8, 8),
+    dark_theme: bool = False,
+    show_axes: bool = False,
+    ax = None,
+    show: bool = True
+):
+    """
+    Visualize a 2D GridWorld search result (BFS/DFS/A*).
+    
+    Args:
+        result: The search result to visualize.
+        canvas_size: Size of the matplotlib figure in inches.
+        dark_theme: Whether to use a dark theme for the visualization.
+        show_axes: Whether to display row/column indices on the axes.
+        show: Whether to call plt.show() to display the figure immediately.
+    """
+
+    problem = result.problem
+    grid = problem.grid
+
+    new_figure = ax is None
+
+    # Theme
+    if dark_theme:
+        if new_figure: plt.style.use("dark_background")
+        free_color = "#444444"
+        obstacle_color = "#000000"
+        path_color = "#4aa3ff"
+        start_color = "#00cc66"
+        goal_color = "#ff4d4d"
+        text_color = "white"
+    else:
+        if new_figure: plt.style.use("default")
+        free_color = "#ffffff"
+        obstacle_color = "#000000"
+        path_color = "#1f77b4"
+        start_color = "#2ca02c"
+        goal_color = "#d62728"
+        text_color = "black"
+
+    # Build image map: 0=free, 1=obstacle
+    cmap = mcolors.ListedColormap([free_color, obstacle_color])
+
+    if new_figure:
+        fig, ax = plt.subplots(figsize=canvas_size)
+    else:
+        fig = ax.figure
+    ax.imshow(grid, cmap=cmap, origin="upper", interpolation="nearest")
+
+    # Draw cell borders
+    ax.set_xticks(np.arange(-0.5, problem.cols, 1), minor=True)
+    ax.set_yticks(np.arange(-0.5, problem.rows, 1), minor=True)
+    ax.grid(which="minor", color="gray", linewidth=0.5, alpha=0.35)
+    ax.tick_params(which="minor", bottom=False, left=False)
+
+    # Path overlay
+    if result.path:
+        ys = [p[0] for p in result.path]  # row
+        xs = [p[1] for p in result.path]  # col
+        ax.plot(xs, ys, color=path_color, linewidth=2.5, marker="o", markersize=4, label="Path")
+
+    # Start/Goal markers
+    sr, sc = problem.start
+    gr, gc = problem.goal
+    ax.scatter(sc, sr, s=120, c=start_color, edgecolors="black", linewidths=1, marker="o", label="Start", zorder=3)
+    ax.scatter(gc, gr, s=120, c=goal_color, edgecolors="black", linewidths=1, marker="*", label="Goal", zorder=3)
+
+    # Labels and title
+    if show_axes:
+        ax.set_xticks(np.arange(problem.cols))
+        ax.set_yticks(np.arange(problem.rows))
+        ax.set_xlabel("Column")
+        ax.set_ylabel("Row")
+    else:
+        ax.set_xticks([])
+        ax.set_yticks([])
+
+    status = "Success" if result.success else "No Path"
+    ax.set_title(
+        f"{result.algorithm} | {status}\n"
+        f"Cost={result.cost:.3f} | Length={result.path_length} | Expanded={result.nodes_expanded} | Time={result.time:.3f} ms",
+        color=text_color
+    )
+
+    ax.legend(loc="upper left", bbox_to_anchor=(1.02, 1.0))
+    
+    if new_figure:
+        fig.tight_layout()
+        if show:
+            plt.show()
+
+    return fig, ax
+
+def visualize_grid_search_multiple(
+    results: list[SearchResult],
+    ncols: int = 2,
+    dark_theme: bool = False,
+    show_axes: bool = False,
+):
+    """
+    Display multiple GridWorld search visualizations in a subplot grid.
+
+    Args:
+        results: List of SearchResult objects to visualize.
+        ncols: Number of columns in the subplot grid.
+        dark_theme: Whether to use a dark theme for the visualizations.
+        show_axes: Whether to display row/column indices on the axes for each subplot.
+    """
+    if len(results) == 0:
+        raise ValueError("results must not be empty.")
+    
+    cell_size: tuple[float, float] = (7, 7)
+    nrows = math.ceil(len(results) / ncols)
+
+    style_name = "dark_background" if dark_theme else "default"
+    with plt.style.context(style_name):
+        fig, axes = plt.subplots(
+            nrows, ncols,
+            figsize=(cell_size[0] * ncols, cell_size[1] * nrows)
+        )
+
+        axes = np.array(axes).reshape(-1)
+
+        for i, result in enumerate(results):
+            visualize_grid_search(
+                result=result,
+                dark_theme=dark_theme,
+                show_axes=show_axes,
+                ax=axes[i],
+                show=False
+            )
+
+        # Hide any unused subplot cells
+        for j in range(len(results), len(axes)):
+            axes[j].axis("off")
+
+        fig.tight_layout()
+        plt.show()
+        return fig, axes

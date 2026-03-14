@@ -15,12 +15,12 @@ from swarmalgo.abc import *
 
 # problem = contfunc.RastriginFunction(dimension=2)
 # problem = contfunc.MichalewiczFunction(dimension=2)
-distance_matrix=np.array([[ 0, 48, 65, 68, 68],
-[10,  0, 22, 37, 88],
-[71, 89,  0, 13, 59],
-[66, 40, 88,  0, 89],
-[82, 38, 26, 78,  0]])
-problem = discfunc.TSPFunction(distance_matrix=distance_matrix, dimension=5)
+# distance_matrix=np.array([[ 0, 48, 65, 68, 68],
+# [10,  0, 22, 37, 88],
+# [71, 89,  0, 13, 59],
+# [66, 40, 88,  0, 89],
+# [82, 38, 26, 78,  0]])
+# problem = discfunc.TSPFunction(distance_matrix=distance_matrix, dimension=5)
 # print(distance_matrix)
 adjacency_matrix = np.array([
     [0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0],
@@ -45,12 +45,12 @@ adjacency_matrix = np.array([
     [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0]
 ])
 # problem = discfunc.GraphColoringFunction(adjacency_matrix=adjacency_matrix, dimension=20)
-# problem = discfunc.KnapsackFunction(
-#     weights=np.array([10, 20, 30, 40, 50]),
-#     values=np.array([60, 100, 120, 240, 300]),
-#     capacity=100,
-#     dimension=5
-# )
+problem = discfunc.KnapsackFunction(
+    weights=np.array([10, 20, 30, 40, 50]),
+    values=np.array([60, 100, 120, 240, 300]),
+    capacity=100,
+    dimension=5
+)
 # result = simulated_annealing_continuous(problem, rng_seed=42, step_bound=0.5, temp=100.0, cooling_rate=0.99)
 # result = differential_evolution_continuous(problem, rng_seed=42, population_size=60, generation=1500)
 # result = differential_evolution_continuous(problem, rng_seed=42, generation=10)
@@ -65,16 +65,25 @@ adjacency_matrix = np.array([
 #     crossover_rate=0.9,
 #     mutation_rate=0.2
 # )
-result = aco_discrete(
-    problem,
-    num_ants=20,
-    generation=100,
-    alpha=1.0,
-    beta=2.0,
-    evaporation_rate=0.5,
-    pheromone_deposit_weight=1.0,
-    initial_pheromone=1.0,
-    rng_seed=42
+# result = aco_discrete(
+#     problem,
+#     num_ants=20,
+#     generation=100,
+#     alpha=1.0,
+#     beta=2.0,
+#     evaporation_rate=0.5,
+#     pheromone_deposit_weight=1.0,
+#     initial_pheromone=1.0,
+#     rng_seed=42
+# )
+result = simulated_annealing_discrete_geometric(
+    problem, 
+    rng_seed=42, 
+    temp=100.0, 
+    cooling_rate=0.99, 
+    min_temp=0.001, 
+    step_bound=2, 
+    max_iteration=10000
 )
 
 # print(result)
@@ -84,5 +93,7 @@ result = aco_discrete(
 # with open("result.dat", "rb") as f:
 #     result = ContinuousResult.from_binary(f.read())
 
+print("=== Final Result ===")
 print(f"algo = {result.algorithm}, problem = {result.problem}")
 print(f"best = {result.best_value} at x = {result.best_x} took {result.time:.4f} ms")
+print(result)

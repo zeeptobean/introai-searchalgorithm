@@ -3,4 +3,4 @@ __pycache__
 .vscode
 note.txt
 dump.txt
-docs
+docs/
