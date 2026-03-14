@@ -390,7 +390,7 @@ def visualize_convergence(result: ContinuousResult | DiscreteResult, dark_theme:
         height=500  # Fixed height since there is no heatmap to expand
     )
 
-    fig.show()
+    return fig
 
 def visualize_runtime_vs_best(
     results: list[ContinuousResult] | list[DiscreteResult] | list[ContinuousResult | DiscreteResult],
@@ -688,9 +688,8 @@ def visualize_knapsack(result: 'DiscreteResult', dark_theme: bool = False):
     fig.update_xaxes(title_text="Iteration", row=2, col=1)
 
     return fig
-    # fig.show()
 
-def visualize_graph_coloring(result: DiscreteResult, dark_theme: bool = False) -> None:
+def visualize_graph_coloring(result: DiscreteResult, dark_theme: bool = False):
     """
     Visualizes the result of a graph coloring optimization.
     """
@@ -774,7 +773,7 @@ def visualize_graph_coloring(result: DiscreteResult, dark_theme: bool = False) -
         )
     )
 
-    fig.show()
+    return fig
 
 def visualize_tsp(
     result: DiscreteResult,
