@@ -1067,8 +1067,10 @@ def visualize_grid_search(
 
     if new_figure:
         fig, ax = plt.subplots(figsize=canvas_size)
+        problem_name = str(result.problem)
     else:
         fig = ax.figure
+        problem_name = ""
     ax.imshow(grid, cmap=cmap, origin="upper", interpolation="nearest")
 
     # Draw cell borders
@@ -1099,10 +1101,11 @@ def visualize_grid_search(
         ax.set_xticks([])
         ax.set_yticks([])
 
-    status = "Success" if result.success else "No Path"
+    status = "Success" if result.success else "Failure"
     ax.set_title(
         f"{result.algorithm} | {status}\n"
-        f"Cost={result.cost:.3f} | Length={result.path_length} | Expanded={result.nodes_expanded} | Time={result.time:.3f} ms",
+        f"Cost={result.cost if result.cost == float('inf') else int(result.cost)} | Expanded={result.nodes_expanded} | Time={result.time:.3f} ms\n"
+        f"{problem_name}",
         color=text_color
     )
 
@@ -1133,6 +1136,13 @@ def visualize_grid_search_multiple(
     if len(results) == 0:
         raise ValueError("results must not be empty.")
     
+    problem_name = ""
+    for ele in results:
+        if problem_name == "":
+            problem_name = str(ele.problem)
+        elif str(ele.problem) != problem_name:
+            raise ValueError("All results should be from the same problem for a meaningful comparison.")
+    
     cell_size: tuple[float, float] = (7, 7)
     nrows = math.ceil(len(results) / ncols)
 
@@ -1158,6 +1168,7 @@ def visualize_grid_search_multiple(
         for j in range(len(results), len(axes)):
             axes[j].axis("off")
 
+        fig.suptitle(f"Grid Search Comparison: {problem_name}", fontsize=16, y=1.02)
         fig.tight_layout()
         plt.show()
         return fig, axes

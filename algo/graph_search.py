@@ -75,7 +75,7 @@ def bfs(problem: GridWorldProblem) -> SearchResult:
         time=elapsed_time,
         cost=float('inf'),
         problem=problem,
-        path=[]
+        path=path           # Store path for visualization
     )
 
 
@@ -159,7 +159,7 @@ def dfs(problem: GridWorldProblem, input_max_depth: Optional[int] = None) -> Sea
         time=elapsed_time,
         cost=float('inf'),
         problem=problem,
-        path=[]
+        path=path           # Store path for visualization
     )
 
 
@@ -256,5 +256,5 @@ def astar(problem: GridWorldProblem, heuristic_name: str = "manhattan") -> Searc
         time=elapsed_time,
         cost=float('inf'),
         problem=problem,
-        path=[]
+        path=path           # Store path for visualization
     )
