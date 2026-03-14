@@ -1,18 +1,4 @@
-"""
-Graph Search Algorithms for GridWorld Problems
-Implements BFS, DFS, and A* for pathfinding in grid-based environments.
-"""
-
-import sys
-from pathlib import Path
-
-# Add parent directory to path to allow imports when running directly
-if __name__ == "__main__":
-    parent_dir = Path(__file__).parent.parent
-    if str(parent_dir) not in sys.path:
-        sys.path.insert(0, str(parent_dir))
-
-from typing import List, Tuple, Set, Optional, Dict
+from typing import Tuple, Set, Optional, Dict
 from collections import deque
 import heapq
 import time
@@ -20,6 +6,7 @@ import numpy as np
 from function.graph_problem import GridWorldProblem
 from util.result import SearchResult
 from util.util import HistoryEntry
+from util.define import TimerWrapper
 
 
 def bfs(problem: GridWorldProblem) -> SearchResult:
@@ -36,7 +23,7 @@ def bfs(problem: GridWorldProblem) -> SearchResult:
     Returns:
         SearchResult with path, cost, and statistics
     """
-    start_time = time.time()
+    timer = TimerWrapper()
     history = HistoryEntry(is_max_value_problem=False)
     
     # Initialize queue with start position
@@ -44,6 +31,7 @@ def bfs(problem: GridWorldProblem) -> SearchResult:
     visited: Set[Tuple[int, int]] = {problem.start}
     nodes_expanded = 0
     
+    timer.start()
     while queue:
         current_pos, path = queue.popleft()
         nodes_expanded += 1
@@ -58,20 +46,15 @@ def bfs(problem: GridWorldProblem) -> SearchResult:
         
         # Check if goal is reached
         if problem.is_goal(current_pos):
-            elapsed_time = (time.time() - start_time) * 1000  # Convert to ms
+            elapsed_time = timer.stop()
             cost = problem.evaluate_path(path)
             
             return SearchResult(
-                type="pathfinding",
-                algorithm="BFS",
-                iterations=nodes_expanded,
-                rng_seed=0,
+                algorithm="Breadth-First Search",
+                short_name="BFS",
+                nodes_expanded=nodes_expanded,
                 time=elapsed_time,
-                last_x=[],  # Will be set in __post_init__
-                last_value=[],  # Will be set in __post_init__
-                best_x=np.array([]),  # Will be set in __post_init__
-                best_value=cost,
-                history=history,
+                cost=cost,
                 problem=problem,
                 path=path
             )
@@ -84,24 +67,19 @@ def bfs(problem: GridWorldProblem) -> SearchResult:
                 queue.append((neighbor, new_path))
     
     # No path found
-    elapsed_time = (time.time() - start_time) * 1000
+    elapsed_time = timer.stop()
     return SearchResult(
-        type="pathfinding",
-        algorithm="BFS",
-        iterations=nodes_expanded,
-        rng_seed=0,
+        algorithm="Breadth-First Search",
+        short_name="BFS",
+        nodes_expanded=nodes_expanded,
         time=elapsed_time,
-        last_x=[],
-        last_value=[],
-        best_x=np.array([]),
-        best_value=float('inf'),
-        history=history,
+        cost=float('inf'),
         problem=problem,
-        path=None
+        path=[]
     )
 
 
-def dfs(problem: GridWorldProblem, max_depth: Optional[int] = None) -> SearchResult:
+def dfs(problem: GridWorldProblem, input_max_depth: Optional[int] = None) -> SearchResult:
     """
     Depth-First Search (DFS) algorithm.
     Does NOT guarantee shortest path, but uses less memory than BFS.
@@ -111,12 +89,13 @@ def dfs(problem: GridWorldProblem, max_depth: Optional[int] = None) -> SearchRes
     
     Args:
         problem: GridWorldProblem instance
-        max_depth: Optional maximum depth limit to prevent infinite loops
+        input_max_depth: Optional maximum depth limit to prevent infinite loops
     
     Returns:
         SearchResult with path, cost, and statistics
     """
-    start_time = time.time()
+    timer = TimerWrapper()
+    timer.start()
     history = HistoryEntry(is_max_value_problem=False)
     
     # Initialize stack with start position
@@ -125,8 +104,7 @@ def dfs(problem: GridWorldProblem, max_depth: Optional[int] = None) -> SearchRes
     nodes_expanded = 0
     
     # Set default max depth if not provided
-    if max_depth is None:
-        max_depth = problem.rows * problem.cols
+    max_depth = input_max_depth if input_max_depth is not None else problem.rows * problem.cols
     
     while stack:
         current_pos, path, depth = stack.pop()
@@ -148,20 +126,15 @@ def dfs(problem: GridWorldProblem, max_depth: Optional[int] = None) -> SearchRes
         
         # Check if goal is reached
         if problem.is_goal(current_pos):
-            elapsed_time = (time.time() - start_time) * 1000
+            elapsed_time = timer.stop()
             cost = problem.evaluate_path(path)
             
             return SearchResult(
-                type="pathfinding",
-                algorithm="DFS",
-                iterations=nodes_expanded,
-                rng_seed=0,
+                algorithm="Depth-First Search",
+                short_name="DFS",
+                nodes_expanded=nodes_expanded,
                 time=elapsed_time,
-                last_x=[],
-                last_value=[],
-                best_x=np.array([]),
-                best_value=cost,
-                history=history,
+                cost=cost,
                 problem=problem,
                 path=path
             )
@@ -178,20 +151,15 @@ def dfs(problem: GridWorldProblem, max_depth: Optional[int] = None) -> SearchRes
                 stack.append((neighbor, new_path, depth + 1))
     
     # No path found
-    elapsed_time = (time.time() - start_time) * 1000
+    elapsed_time = timer.stop()
     return SearchResult(
-        type="pathfinding",
-        algorithm="DFS",
-        iterations=nodes_expanded,
-        rng_seed=0,
+        algorithm="Depth-First Search",
+        short_name="DFS",
+        nodes_expanded=nodes_expanded,
         time=elapsed_time,
-        last_x=[],
-        last_value=[],
-        best_x=np.array([]),
-        best_value=float('inf'),
-        history=history,
+        cost=float('inf'),
         problem=problem,
-        path=None
+        path=[]
     )
 
 
@@ -211,7 +179,8 @@ def astar(problem: GridWorldProblem, heuristic_name: str = "manhattan") -> Searc
     Returns:
         SearchResult with path, cost, and statistics
     """
-    start_time = time.time()
+    timer = TimerWrapper()
+    timer.start()
     history = HistoryEntry(is_max_value_problem=False)
     # info = (g_score, h_score, f_score, queue_size) will be tracked in history for debugging
     
@@ -240,20 +209,15 @@ def astar(problem: GridWorldProblem, heuristic_name: str = "manhattan") -> Searc
         
         # Check if goal is reached
         if problem.is_goal(current_pos):
-            elapsed_time = (time.time() - start_time) * 1000
+            elapsed_time = timer.stop()
             cost = problem.evaluate_path(path)
             
             return SearchResult(
-                type="pathfinding",
                 algorithm=f"A* ({heuristic_name})",
-                iterations=nodes_expanded,
-                rng_seed=0,
+                short_name="A*",
+                nodes_expanded=nodes_expanded,
                 time=elapsed_time,
-                last_x=[],
-                last_value=[],
-                best_x=np.array([]),
-                best_value=cost,
-                history=history,
+                cost=cost,
                 problem=problem,
                 path=path
             )
@@ -284,95 +248,13 @@ def astar(problem: GridWorldProblem, heuristic_name: str = "manhattan") -> Searc
                               (new_f_score, counter, neighbor, new_path, new_g_score))
     
     # No path found
-    elapsed_time = (time.time() - start_time) * 1000
+    elapsed_time = timer.stop()
     return SearchResult(
-        type="pathfinding",
         algorithm=f"A* ({heuristic_name})",
-        iterations=nodes_expanded,
-        rng_seed=0,
+        short_name="A*",
+        nodes_expanded=nodes_expanded,
         time=elapsed_time,
-        last_x=[],
-        last_value=[],
-        best_x=np.array([]),
-        best_value=float('inf'),
-        history=history,
+        cost=float('inf'),
         problem=problem,
-        path=None
+        path=[]
     )
-
-
-# Example usage and testing
-if __name__ == "__main__":
-    from function.graph_problem import create_simple_grid
-    
-    # Create a test grid
-    print("Creating test grid...")
-    grid, start, goal = create_simple_grid(rows=10, cols=10, obstacle_ratio=0.2, seed=42)
-    problem = GridWorldProblem(grid, start, goal)
-    
-    print(f"\nProblem: {problem}")
-    print("\nInitial Grid:")
-    print(problem.visualize_path())
-    print()
-    
-    # Test BFS
-    print("=" * 60)
-    print("Running BFS...")
-    bfs_result = bfs(problem)
-    print(bfs_result)
-    if bfs_result.success:
-        print("\nBFS Path Visualization:")
-        print(bfs_result.visualize_path())
-    print()
-    
-    # Test DFS
-    print("=" * 60)
-    print("Running DFS...")
-    dfs_result = dfs(problem)
-    print(dfs_result)
-    if dfs_result.success:
-        print("\nDFS Path Visualization:")
-        print(dfs_result.visualize_path())
-    print()
-    
-    # Test A* with Manhattan distance
-    print("=" * 60)
-    print("Running A* (Manhattan)...")
-    astar_manhattan_result = astar(problem, heuristic_name="manhattan")
-    print(astar_manhattan_result)
-    if astar_manhattan_result.success:
-        print("\nA* Path Visualization (Manhattan):")
-        print(astar_manhattan_result.visualize_path())
-    print()
-    
-    # Test A* with Euclidean distance
-    print("=" * 60)
-    print("Running A* (Euclidean)...")
-    astar_euclidean_result = astar(problem, heuristic_name="euclidean")
-    print(astar_euclidean_result)
-    if astar_euclidean_result.success:
-        print("\nA* Path Visualization (Euclidean):")
-        print(astar_euclidean_result.visualize_path())
-    print()
-    
-    # Compare algorithms
-    print("=" * 60)
-    print("ALGORITHM COMPARISON:")
-    print(f"{'Algorithm':<20} {'Cost':>10} {'Nodes':>8} {'Time (ms)':>12} {'Success':>10}")
-    print("-" * 60)
-    print(f"{'BFS':<20} {bfs_result.path_cost:>10.2f} {bfs_result.nodes_explored:>8} {bfs_result.time:>12.2f} {str(bfs_result.success):>10}")
-    print(f"{'DFS':<20} {dfs_result.path_cost:>10.2f} {dfs_result.nodes_explored:>8} {dfs_result.time:>12.2f} {str(dfs_result.success):>10}")
-    print(f"{'A* (Manhattan)':<20} {astar_manhattan_result.path_cost:>10.2f} {astar_manhattan_result.nodes_explored:>8} {astar_manhattan_result.time:>12.2f} {str(astar_manhattan_result.success):>10}")
-    print(f"{'A* (Euclidean)':<20} {astar_euclidean_result.path_cost:>10.2f} {astar_euclidean_result.nodes_explored:>8} {astar_euclidean_result.time:>12.2f} {str(astar_euclidean_result.success):>10}")
-    print()
-    
-    # Test JSON serialization
-    print("=" * 60)
-    print("Testing JSON serialization...")
-    json_data = bfs_result.to_json()
-    print(f"JSON keys: {list(json_data.keys())}")
-    
-    # Test simplified JSON
-    json_simple = bfs_result.to_json_simple()
-    print(f"Simplified JSON keys: {list(json_simple.keys())}")
-    print(f"Serialization test: PASSED")
