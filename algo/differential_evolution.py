@@ -82,63 +82,65 @@ def differential_evolution_discrete_tsp(
     rng_seed: int | None = None
 ) -> DiscreteResult:
     """
-    Differential Evolution dispatcher for discrete optimization problems.
-    Automatically selects the appropriate specialized implementation based on problem type.
-    
-    Specialized implementations:
-    - TSPFunction: Uses position-based mutation from 3 individuals
-    - KnapsackFunction: Uses binary mutation with XOR operations
-    - GraphColoringFunction: Uses continuous-to-discrete mapping
-    - Generic: Uses neighbor-based approach
+    Differential Evolution for TSP problems.
+    Uses position-based mutation from 3 individuals and order crossover.
     
     Args:
-        problem: The discrete optimization problem to solve.
+        problem: The TSP problem to solve.
         population_size: The number of individuals in the population.
-        mutation_factor: Controls mutation intensity.
+        mutation_factor: Controls the difference vector amplification.
         crossover_rate: Probability of crossover.
         generation: Number of generations.
         rng_seed: Seed for the random number generator.
-    
-    Returns:
-        DiscreteResult containing the optimization results.
     """
-    if isinstance(problem, TSPFunction):
-        return differential_evolution_discrete_tsp(problem, population_size, mutation_factor, crossover_rate, generation, rng_seed)
-    elif isinstance(problem, KnapsackFunction):
-        return differential_evolution_discrete_knapsack(problem, population_size, mutation_factor, crossover_rate, generation, rng_seed)
-    elif isinstance(problem, GraphColoringFunction):
-        return differential_evolution_discrete_graphcoloring(problem, population_size, mutation_factor, crossover_rate, generation, rng_seed)
-    else:
-        # Generic DE for other discrete problems
-        if mutation_factor < 0 or mutation_factor > 2:
-            raise ValueError("mutation_factor must be in [0, 2]")
-        if crossover_rate < 0 or crossover_rate > 1:
-            raise ValueError("crossover_rate must be in [0, 1]")
-        if population_size < 4:
-            raise ValueError("population_size must be at least 4")
-        if generation <= 0:
-            raise ValueError("generation must be positive")
+    if mutation_factor < 0 or mutation_factor > 2:
+        raise ValueError("mutation_factor must be in [0, 2]")
+    if crossover_rate < 0 or crossover_rate > 1:
+        raise ValueError("crossover_rate must be in [0, 1]")
+    if population_size < 4:
+        raise ValueError("population_size must be at least 4")
+    if generation <= 0:
+        raise ValueError("generation must be positive")
 
-        rng_wrapper = RNGWrapper(rng_seed)
-        timer = TimerWrapper()
-        timer.start()
+    rng_wrapper = RNGWrapper(rng_seed)
+    timer = TimerWrapper()
+    timer.start()
 
-        population: list[FloatVector] = [problem.random_solution(rng_wrapper) for _ in range(population_size)]
-        fitness = np.array([problem.evaluate(x) for x in population])
+    population: list[FloatVector] = [problem.random_solution(rng_wrapper) for _ in range(population_size)]
+    fitness = np.array([problem.evaluate(x) for x in population])
 
-        history = HistoryEntry(is_max_value_problem=problem.is_max_value_problem())
-        history.add([x.copy() for x in population], list(fitness))
+    history = HistoryEntry(is_max_value_problem=problem.is_max_value_problem())
+    history.add([x.copy() for x in population], list(fitness))
 
-        for _ in range(generation):
-            for i in range(population_size):
-                # Mutation
-                idx_list = [idx for idx in range(population_size) if idx != i]
-                a_idx = rng_wrapper.rng.choice(idx_list)
+    for _ in range(generation):
+        for i in range(population_size):
+            # Mutation: Position-based from 3 individuals
+            idx_list = [idx for idx in range(population_size) if idx != i]
+            a_idx, b_idx, c_idx = rng_wrapper.rng.choice(idx_list, 3, replace=False)
+            a, b, c = population[a_idx], population[b_idx], population[c_idx]
+            
+            # Find positions where b and c differ
+            diff_positions = np.where(b != c)[0]
+            
+            # Create mutant starting from a
+            mutant = a.copy()
+            
+            # Apply position-based mutation with mutation_factor probability
+            if len(diff_positions) > 0:
+                num_changes = int(len(diff_positions) * mutation_factor)
+                num_changes = max(1, min(num_changes, len(diff_positions)))
                 
-                swap_cnt = int(rng_wrapper.rng.integers(1, max(2, int(problem.dimension * mutation_factor))))
-                mutant = problem.neighbor(population[a_idx], swap_cnt, rng_wrapper)
+                selected_positions = rng_wrapper.rng.choice(diff_positions, size=num_changes, replace=False)
+                
+                for pos in selected_positions:
+                    # Find the value from b at this position
+                    value_b = b[pos]
+                    # Find where this value is in mutant
+                    current_pos = np.where(mutant == value_b)[0][0]
+                    # Swap to put it at the right position
+                    mutant[pos], mutant[current_pos] = mutant[current_pos], mutant[pos]
 
-            # 2. Crossover for permutation problems (Order Crossover - OX)
+            # Crossover: Order Crossover (OX)
             if rng_wrapper.rng.random() < crossover_rate:
                 parent = population[i]
                 trial = mutant.copy()
