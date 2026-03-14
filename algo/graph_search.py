@@ -37,7 +37,7 @@ def bfs(problem: GridWorldProblem) -> SearchResult:
         nodes_expanded += 1
         
         # Add to history (track current path being explored)
-        path_cost = problem.evaluate_path(path) if len(path) > 1 else 0.0
+        path_cost = problem.evaluate_path(path)
         history.add(
             x=[problem.path_to_vector(path)],
             value=[path_cost],
@@ -117,7 +117,7 @@ def dfs(problem: GridWorldProblem, input_max_depth: Optional[int] = None) -> Sea
         nodes_expanded += 1
         
         # Add to history
-        path_cost = problem.evaluate_path(path) if len(path) > 1 else 0.0
+        path_cost = problem.evaluate_path(path)
         history.add(
             x=[problem.path_to_vector(path)],
             value=[path_cost],
@@ -199,7 +199,7 @@ def astar(problem: GridWorldProblem, heuristic_name: str = "manhattan") -> Searc
         nodes_expanded += 1
         
         # Add to history
-        path_cost = problem.evaluate_path(path) if len(path) > 1 else 0.0
+        path_cost = problem.evaluate_path(path)
         h_score = problem.heuristic(current_pos, heuristic_name)
         history.add(
             x=[problem.path_to_vector(path)],
