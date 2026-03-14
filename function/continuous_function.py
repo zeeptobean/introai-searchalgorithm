@@ -107,8 +107,8 @@ class RosenbrockFunction(ContinuousProblem):
     def _rosenbrock_function(self, x: FloatVector) -> Float:
         return self._rosenbrock_function_generalized(x, a=1.0, b=100.0)
 
-    def __init__(self, dimension: int):
-        super().__init__(objective_function=self._rosenbrock_function, dimension=dimension)
+    def __init__(self, dimension: int, lower_bound: Float | None = None, upper_bound: Float | None = None):
+        super().__init__(objective_function=self._rosenbrock_function, dimension=dimension, lower_bound=lower_bound, upper_bound=upper_bound)
 
     @override
     def __repr__(self) -> str:
@@ -121,12 +121,12 @@ class SphereFunction(ContinuousProblem):
     def _sphere_function(self, x: FloatVector) -> Float:
         return np.sum(x**2)
 
-    def __init__(self, dimension: int):
-        super().__init__(objective_function=self._sphere_function, dimension=dimension)
+    def __init__(self, dimension: int, lower_bound: Float | None = None, upper_bound: Float | None = None):
+        super().__init__(objective_function=self._sphere_function, dimension=dimension, lower_bound=lower_bound, upper_bound=upper_bound)
 
     @override
     def __repr__(self) -> str:
-        return f"Sphere function: dimension={self.dimension}"
+        return f"Sphere function: dimension={self.dimension}, bound=[{self.lower_bound}, {self.upper_bound}]"
 
 """
 Michalewicz Function[1]
