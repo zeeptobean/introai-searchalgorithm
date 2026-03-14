@@ -779,246 +779,178 @@ import numpy.typing as npt
 import networkx as nx
 import plotly.graph_objects as go
 
-def visualize_tsp(result: DiscreteResult, dark_theme: bool = False) -> go.Figure:
+def visualize_tsp(
+    result: DiscreteResult,
+    canvas_size: tuple[float, float] = (10, 8),
+    dark_theme: bool = False,
+    show_edge_weights: bool = True,
+    ax=None,
+    show: bool = True
+):
     """
-    Creates an interactive Plotly visualization for TSP agents.
-    Features: Agent selection, iteration animation, edge weights, 
-    start highlighting, directional arrows, and dynamically updated info text.
-    
+    Visualize a TSP result in Matplotlib using only the best configuration (no animation).
+
     Args:
-        result: DiscreteResult containing the TSP problem and optimization history.
-        dark_theme: If True, sets the visualization to a dark theme.
+        result: DiscreteResult containing a TSPFunction problem and best_x path.
+        canvas_size: Figure size in inches (used when ax is None).
+        dark_theme: Whether to use a dark theme.
+        show_edge_weights: Whether to annotate edge weights along the best path.
+        ax: Optional Matplotlib axis for subplot composition.
+        show: Whether to call plt.show() when a new figure is created.
     """
     if not isinstance(result.problem, TSPFunction):
         raise TypeError("Result problem must be an instance of TSPFunction to visualize.")
 
-    # --- Theme Configuration ---
-    if dark_theme:
-        plotly_template = "plotly_dark"
-        bg_color = "rgb(17,17,17)"
-        font_color = "white"
-        edge_weight_color = "lightgray"
-        arrow_color = "#FFA07A" # Lighter coral for dark mode
-    else:
-        plotly_template = "plotly_white"
-        bg_color = "white"
-        font_color = "black"
-        edge_weight_color = "gray"
-        arrow_color = "coral"
-
     dist_matrix = result.problem.distance_matrix
     dimension = result.problem.dimension
-    history_x = result.history.history_x
-    history_val = result.history.history_value
-    best_overall_val = result.best_value
-    
-    num_iters = len(history_x)
-    num_agents = len(history_x[0]) if num_iters > 0 else 0
 
-    # 1. Calculate Graph Layout
+    best_path = [int(n) for n in np.array(result.best_x).tolist()]
+    if len(best_path) != dimension or set(best_path) != set(range(dimension)):
+        raise ValueError("result.best_x must be a valid permutation of city indices [0..dimension-1].")
+
+    new_figure = ax is None
+    if new_figure:
+        style_name = "dark_background" if dark_theme else "default"
+        with plt.style.context(style_name):
+            fig, ax = plt.subplots(figsize=canvas_size)
+    else:
+        fig = ax.figure
+
+    # Theme colors
+    if dark_theme:
+        city_color = "#9bd4ff"
+        city_edge = "white"
+        path_color = "#FFA07A"
+        start_color = "#00CC96"
+        text_color = "white"
+        node_text_color = "black"
+    else:
+        city_color = "#87CEFA"
+        city_edge = "black"
+        path_color = "coral"
+        start_color = "#00AA66"
+        text_color = "black"
+        node_text_color = "black"
+
+    # Circular layout to match prior style
     G = nx.from_numpy_array(dist_matrix)
-    pos = nx.circular_layout(G) 
-    
+    pos = nx.circular_layout(G)
+
+    # Draw cities
     node_x = [pos[i][0] for i in range(dimension)]
     node_y = [pos[i][1] for i in range(dimension)]
-    
-    # Coordinates for the Info Text Panel - Moved higher to act as a Subtitle
-    # The graph circle peaks at y=1.0, so y=1.35 gives plenty of clearance.
-    info_x = -1.45
-    info_y = 1.35
+    ax.scatter(node_x, node_y, s=160, c=city_color, edgecolors=city_edge, linewidths=1.5, zorder=3)
 
-    fig = go.Figure()
+    # Label cities
+    for i in range(dimension):
+        x, y = pos[i]
+        ax.text(x, y, f"{i}", ha="center", va="center", fontsize=10, color=node_text_color, zorder=7, fontweight="bold")
 
-    # Trace 0: The Nodes (Cities)
-    fig.add_trace(go.Scatter(
-        x=node_x, y=node_y, 
-        mode='markers+text',
-        text=[f"City {i}" for i in range(dimension)],
-        textposition="bottom center",
-        marker=dict(size=12, color='lightblue', line=dict(width=2, color='black')),
-        name='Cities',
-        hoverinfo='text'
-    ))
+    # Draw best tour path with directional arrows
+    closed_path = best_path + [best_path[0]]
+    for i in range(len(best_path)):
+        n1, n2 = closed_path[i], closed_path[i + 1]
+        x1, y1 = pos[n1]
+        x2, y2 = pos[n2]
 
-    for k in range(num_agents):
-        path = [int(n) for n in history_x[0][k]]
-        path_closed = path + [path[0]] # Wrap back to the first node
-        px = [pos[n][0] for n in path_closed]
-        py = [pos[n][1] for n in path_closed]
-        
-        # Color coding: Start (Green). Rest (Coral). 
-        colors = ['#00CC96'] + ['coral'] * (len(path) - 1) + ['rgba(0,0,0,0)']
-        sizes = [16] + [8] * (len(path) - 1) + [0]
+        ax.plot([x1, x2], [y1, y2], color=path_color, linewidth=2.5, zorder=2)
 
-        # Trace Group A: Agent Paths (Traces 1 to N)
-        fig.add_trace(go.Scatter(
-            x=px, y=py,
-            mode='lines+markers',
-            line=dict(width=3, color='coral'),
-            marker=dict(color=colors, size=sizes, line=dict(width=1, color='black')),
-            visible=(k == 0),
-            name=f'Agent {k} Path'
-        ))
-        
-    for k in range(num_agents):
-        path = [int(n) for n in history_x[0][k]]
-        path_closed = path + [path[0]]
-        mid_x, mid_y, edge_weights, angles = [], [], [], []
-        
-        for i in range(len(path_closed) - 1):
-            n1, n2 = path_closed[i], path_closed[i+1]
-            x1, y1 = pos[n1][0], pos[n1][1]
-            x2, y2 = pos[n2][0], pos[n2][1]
-            
-            mid_x.append((x1 + x2) / 2)
-            mid_y.append((y1 + y2) / 2)
-            edge_weights.append(f"{dist_matrix[n1][n2]:.1f}")
-            
-            # Calculate angle for the directional arrow (Plotly angles rotate clockwise)
-            angle_deg = np.degrees(np.arctan2(y2 - y1, x2 - x1))
-            angles.append(-angle_deg) 
+        # Direction arrow
+        ax.annotate(
+            "",
+            xy=(x2, y2),
+            xytext=(x1, y1),
+            arrowprops=dict(arrowstyle="-|>", color=path_color, lw=2.8, shrinkA=14, shrinkB=14, mutation_scale=20),
+            zorder=5
+        )
 
-        # Trace Group B: Edge Weights & Arrows (Traces N+1 to 2N)
-        fig.add_trace(go.Scatter(
-            x=mid_x, y=mid_y,
-            mode='text+markers',
-            text=edge_weights,
-            textposition='top center',
-            textfont=dict(size=11, color=edge_weight_color),
-            marker=dict(symbol='triangle-right', size=14, color=arrow_color, angle=angles, line=dict(width=1, color='darkred')),
-            visible=(k == 0),
-            showlegend=False,
-            hoverinfo='skip'
-        ))
-        
-    for k in range(num_agents):
-        val = history_val[0][k]
-        path = [int(n) for n in history_x[0][k]]
-        
-        # Formatted horizontally to look like a clean subtitle underneath the main title
-        info_text = (f"<b>Start Node:</b> City {path[0]}   |   "
-                     f"<b>Config Value:</b> {val:.2f}   |   "
-                     f"<b>Global Best:</b> {best_overall_val:.2f}")
-        
-        # Trace Group C: Status Info Text (Traces 2N+1 to 3N)
-        fig.add_trace(go.Scatter(
-            x=[info_x], y=[info_y],
-            mode='text',
-            text=[info_text],
-            textposition="top right", # Draws the text UPWARDS away from the graph
-            textfont=dict(size=14, color=font_color),
-            visible=(k == 0),
-            name=f'Agent {k} Info',
-            showlegend=False,
-            hoverinfo='skip'
-        ))
+        # Edge weight at midpoint
+        if show_edge_weights:
+            mx, my = (x1 + x2) / 2.0, (y1 + y2) / 2.0
+            ax.text(mx, my, f"{dist_matrix[n1][n2]:.1f}", fontsize=8, color=text_color, zorder=9, ha="center", va="center", fontweight="bold")
 
-    # 2. Build Frames for Animation
-    frames = []
-    for t in range(num_iters):
-        frame_data = []
-        
-        # 1. Update Paths
-        for k in range(num_agents):
-            path = [int(n) for n in history_x[t][k]]
-            path_closed = path + [path[0]]
-            px = [pos[n][0] for n in path_closed]
-            py = [pos[n][1] for n in path_closed]
-            
-            colors = ['#00CC96'] + ['coral'] * (len(path) - 1) + ['rgba(0,0,0,0)']
-            sizes = [16] + [8] * (len(path) - 1) + [0]
-            
-            frame_data.append(go.Scatter(x=px, y=py, marker=dict(color=colors, size=sizes)))
-            
-        # 2. Update Edge Weights & Arrows
-        for k in range(num_agents):
-            path = [int(n) for n in history_x[t][k]]
-            path_closed = path + [path[0]]
-            mid_x, mid_y, edge_weights, angles = [], [], [], []
-            for i in range(len(path_closed) - 1):
-                n1, n2 = path_closed[i], path_closed[i+1]
-                x1, y1 = pos[n1][0], pos[n1][1]
-                x2, y2 = pos[n2][0], pos[n2][1]
-                
-                mid_x.append((x1 + x2) / 2)
-                mid_y.append((y1 + y2) / 2)
-                edge_weights.append(f"{dist_matrix[n1][n2]:.1f}")
-                
-                angle_deg = np.degrees(np.arctan2(y2 - y1, x2 - x1))
-                angles.append(-angle_deg)
-                
-            frame_data.append(go.Scatter(x=mid_x, y=mid_y, text=edge_weights, marker=dict(angle=angles)))
-            
-        # 3. Update Status Info Text (Horizontal Format)
-        for k in range(num_agents):
-            val = history_val[t][k]
-            path = [int(n) for n in history_x[t][k]]
-            info_text = (f"<b>Start Node:</b> City {path[0]}   |   "
-                         f"<b>Config Value:</b> {val:.2f}   |   "
-                         f"<b>Global Best:</b> {best_overall_val:.2f}")
-            
-            frame_data.append(go.Scatter(x=[info_x], y=[info_y], text=[info_text]))
-            
-        trace_indices = list(range(1, 3 * num_agents + 1))
-        frames.append(go.Frame(data=frame_data, name=str(t), traces=trace_indices))
-        
-    fig.frames = frames
+    # Highlight start city
+    start_city = best_path[0]
+    sx, sy = pos[start_city]
+    ax.scatter([sx], [sy], s=220, c=start_color, edgecolors=city_edge, linewidths=2, zorder=5, label="Start City")
 
-    # 3. Create Dropdown to select Agents
-    agent_buttons = []
-    for k in range(num_agents):
-        visible_array = [True] + \
-                        [i == k for i in range(num_agents)] + \
-                        [i == k for i in range(num_agents)] + \
-                        [i == k for i in range(num_agents)]
-        agent_buttons.append(dict(
-            label=f"Agent {k}", method="update",
-            args=[{"visible": visible_array}, {"title": f"Path Visualization: TSP(cities={result.problem.dimension}); Agent {k}; runtime={result.time:.2f}ms<br><sup>{result.algorithm}; rngseed={result.rng_seed}</sup>"}]
-        ))
+    # Title + info
+    if new_figure:
+        ax.set_title(
+            f"Path Visualization: TSP(cities={dimension}); runtime={result.time:.2f}ms\n"
+            f"{result.algorithm}; rngseed={result.rng_seed}\n"
+            f"Start Node: City {start_city} | Best: {result.best_value}",
+            color=text_color
+        )
+    else:
+        ax.set_title(
+            f"{result.short_name} | Best: {result.best_value}",
+            fontsize=11, 
+            color=text_color
+        )
 
-    # 4. Final Layout config
-    fig.update_layout(
-        title=dict(text=f"Path Visualization: TSP(cities={result.problem.dimension}); Agent 0; runtime={result.time:.2f}ms<br><sup>{result.algorithm}; rngseed={result.rng_seed}</sup>", font=dict(color=font_color)),
-        template=plotly_template,
-        plot_bgcolor=bg_color,
-        paper_bgcolor=bg_color,
-        updatemenus=[
-            # Play / Pause Buttons
-            dict(
-                type="buttons", direction="right", showactive=False,
-                x=0.0, y=-0.1, xanchor="left", yanchor="top",
-                buttons=[
-                    dict(label="Play", method="animate", args=[None, dict(frame=dict(duration=800, redraw=True), fromcurrent=True)]),
-                    dict(label="Pause", method="animate", args=[[None], dict(frame=dict(duration=0, redraw=False), mode="immediate")])
-                ],
-                font=dict(color=font_color)
-            ),
-            # Agent Dropdown
-            dict(
-                buttons=agent_buttons, direction="up", showactive=True,
-                x=0.15, y=-0.1, xanchor="left", yanchor="top",
-                font=dict(color=font_color)
+    ax.set_aspect("equal", adjustable="box")
+    ax.set_xlim(-1.35, 1.35)
+    ax.set_ylim(-1.35, 1.35)
+    ax.axis("off")
+    ax.legend(loc="upper right")
+
+    if new_figure and show:
+        fig.tight_layout()
+        plt.show()
+
+    return fig, ax
+
+
+def visualize_tsp_multiple(
+    results: list[DiscreteResult],
+    ncols: int = 2,
+    canvas_size_per_plot: tuple[float, float] = (7, 6),
+    dark_theme: bool = False,
+    show_edge_weights: bool = False
+):
+    """
+    Display multiple TSP best-path visualizations in a subplot grid (Matplotlib, no animation).
+    """
+    if len(results) == 0:
+        raise ValueError("results must not be empty.")
+
+    problem_name: str | None = None
+
+    for r in results:
+        if not isinstance(r.problem, TSPFunction):
+            raise TypeError("All results must be TSP DiscreteResult objects.")
+        if problem_name is None:
+            problem_name = str(r.problem)
+        elif str(r.problem) != problem_name:
+            raise ValueError("All results must be from the same TSP problem for a meaningful comparison.")
+
+    nrows = math.ceil(len(results) / ncols)
+    style_name = "dark_background" if dark_theme else "default"
+
+    with plt.style.context(style_name):
+        fig, axes = plt.subplots(
+            nrows, ncols,
+            figsize=(canvas_size_per_plot[0] * ncols, canvas_size_per_plot[1] * nrows)
+        )
+        axes = np.array(axes).reshape(-1)
+
+        for i, result in enumerate(results):
+            visualize_tsp(
+                result=result,
+                dark_theme=dark_theme,
+                show_edge_weights=show_edge_weights,
+                ax=axes[i],
+                show=False
             )
-        ],
-        sliders=[dict(
-            steps=[dict(
-                method='animate', 
-                args=[[str(t)], dict(mode='immediate', frame=dict(duration=800, redraw=True))], 
-                label=f"Iter {t}"
-            ) for t in range(num_iters)],
-            x=0.3, y=-0.1, len=0.7, xanchor="left", yanchor="top",
-            font=dict(color=font_color)
-        )],
-        # Extended yaxis to 1.6 to ensure the new "Subtitle" trace has plenty of space
-        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-1.5, 1.5]),
-        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-1.4, 1.6], scaleanchor="x", scaleratio=1),
-        height=800,
-        width=1200,
-        margin=dict(b=100) 
-    )
-    
-    fig.show()
-    return fig
+
+        for j in range(len(results), len(axes)):
+            axes[j].axis("off")
+
+        fig.suptitle(f"TSP Comparison: {problem_name}", fontsize=16, y=1.02)
+        fig.tight_layout()
+        plt.show()
+        return fig, axes
 
 def visualize_grid_search(
     result: SearchResult,
