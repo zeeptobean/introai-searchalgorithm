@@ -35,6 +35,9 @@ def firefly_continuous(
     lower_bound = problem.lower_bound if problem.lower_bound is not None else -100
     upper_bound = problem.upper_bound if problem.upper_bound is not None else 100
 
+    # Calculate scale for normalization to prevent distance explosion
+    scale = np.maximum(upper_bound - lower_bound, 1e-6)
+
     history = HistoryEntry()
 
     timer = TimerWrapper()
@@ -45,40 +48,40 @@ def firefly_continuous(
 
     history.add([p.copy() for p in population], list(fitness))
 
-    for _ in range(generation):
+    for gen in range(generation):
+        # Alpha damping: reduce the random step size over time for better convergence
+        current_alpha = alpha * (1.0 - (gen / generation))
+
         for i in range(population_size):
+            attraction_sum = np.zeros(problem.dimension)
+            brighter_count = 0
+            
             for j in range(population_size):
-                # If firefly j is brighter than firefly i, move i towards j
+                # If firefly j is brighter than firefly i, accumulate attraction
                 if fitness[j] < fitness[i]:
-                    # Calculate distance and attractiveness
-                    r_squared = np.sum((population[i] - population[j])**2)
+                    # Normalize distance so exp(-gamma * r) doesn't instantly collapse to 0
+                    r_squared = np.sum(((population[i] - population[j]) / scale) ** 2)
                     beta = beta0 * np.exp(-gamma * r_squared)
-                    attractiveness = beta * (population[j] - population[i])
-                    epsilon = rng_wrapper.rng.uniform(-0.5, 0.5, size=problem.dimension)
                     
-                    # Update position
-                    new_solution = population[i] + attractiveness + alpha * epsilon
-                    new_solution = np.clip(new_solution, lower_bound, upper_bound)
-                    
-                    new_fitness = problem.evaluate(new_solution)
-                    
-                    # update straight into if better
-                    if new_fitness < fitness[i]:
-                        population[i] = new_solution
-                        fitness[i] = new_fitness
+                    attraction_sum += beta * (population[j] - population[i])
+                    brighter_count += 1
         
-        # Find the best firefly and move it randomly, then evaluate and update if better
-        best_idx = np.argmin(fitness)
-        best_firefly = population[best_idx]
-        
-        epsilon = rng_wrapper.rng.uniform(-0.5, 0.5, size=problem.dimension)
-        new_solution = best_firefly + alpha * epsilon
+        if brighter_count > 0:
+            # Average the attraction to prevent overshooting
+            attraction_sum /= brighter_count
+            epsilon = rng_wrapper.rng.uniform(-0.5, 0.5, size=problem.dimension) * scale
+            new_solution = population[i] + attraction_sum + current_alpha * epsilon
+        else:
+            # Best firefly moves randomly to explore
+            epsilon = rng_wrapper.rng.uniform(-0.5, 0.5, size=problem.dimension) * scale
+            new_solution = population[i] + current_alpha * epsilon
         new_solution = np.clip(new_solution, lower_bound, upper_bound)
         new_fitness = problem.evaluate(new_solution)
 
-        if new_fitness < fitness[best_idx]:
-            population[best_idx] = new_solution
-            fitness[best_idx] = new_fitness
+        # Update straight into population if better
+        if new_fitness < fitness[i]:
+            population[i] = new_solution
+            fitness[i] = new_fitness
 
         history.add([p.copy() for p in population], list(fitness))
 
@@ -454,7 +457,7 @@ def firefly_discrete(
     alpha: float = 0.5,
     beta0: float = 1.0,
     gamma: float = 1.0,
-    step_size: Float = 1.0,
+    step_size: int = 1,
     rng_seed: int | None = None
 ) -> DiscreteResult:
     """

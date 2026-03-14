@@ -87,13 +87,17 @@ def cuckoo_search_continuous(
     nests: list[FloatVector] = [rng_wrapper.uniform(lower_bound, upper_bound, size=problem.dimension) for _ in range(population_size)]
     fitness = np.array([problem.evaluate(x) for x in nests])
 
+    # Track the global best nest
+    best_idx = np.argmin(fitness)
+    best_nest = nests[best_idx].copy()
+
     history.add([x.copy() for x in nests], list(fitness))
 
     for _ in range(generation):
         # Generate new solutions (cuckoos) via Lévy flights
         for i in range(population_size):
             step = _levy_flight_step(rng_wrapper, problem.dimension, beta)
-            new_nest = nests[i] + alpha * step
+            new_nest = alpha * step * (nests[i] - best_nest)
             new_nest = np.clip(new_nest, lower_bound, upper_bound)
             new_fitness = problem.evaluate(new_nest)
 
@@ -110,8 +114,19 @@ def cuckoo_search_continuous(
 
         # re-eval worst nests after abandoning 
         for k in worst_indices:
-            nests[k] = rng_wrapper.uniform(lower_bound, upper_bound, size=problem.dimension)
+            # Use differential mutation based on two random nests as "biased random walk"
+            r1, r2 = rng_wrapper.rng.choice(population_size, size=2, replace=False)
+            rand_step = rng_wrapper.random() * (nests[r1] - nests[r2])
+            
+            nests[k] = nests[k] + rand_step
+            nests[k] = np.clip(nests[k], lower_bound, upper_bound)
             fitness[k] = problem.evaluate(nests[k])
+
+        # Update the global best nest
+        current_best_idx = np.argmin(fitness)
+        if fitness[current_best_idx] < fitness[best_idx]:
+            best_idx = current_best_idx
+            best_nest = nests[best_idx].copy()
 
         history.add([x.copy() for x in nests], list(fitness))
 
