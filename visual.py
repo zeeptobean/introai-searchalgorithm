@@ -14,292 +14,289 @@ from function.continuous_function import *
 from util.result import *
 from util.define import *
 from util.util import *
-
-class ContinuousResultVisualizer:
-    """Visualize continuous optimization results with interactive Plotly 3D/2D plots."""
     
-    def __init__(self, result: ContinuousResult):
-        self.result = result
-        self.problem = result.problem
-        
-    def _create_mesh_grid(self, resolution: int):
-        """Helper method to generate the function landscape data."""
-        x_min, x_max = self.problem.lower_bound or -10, self.problem.upper_bound or 10
-        y_min, y_max = self.problem.lower_bound or -10, self.problem.upper_bound or 10
-        
-        x = np.linspace(x_min, x_max, resolution)
-        y = np.linspace(y_min, y_max, resolution)
-        X, Y = np.meshgrid(x, y)
-        
-        XY = np.stack([X.ravel(), Y.ravel()], axis=1)
-        Z = np.array([self.problem.evaluate(xy) for xy in XY]).reshape(X.shape)
-        
-        return x, y, Z
+def _create_mesh_grid(problem: ContinuousProblem, resolution: int):
+    """Helper method to generate the function landscape data."""
+    x_min, x_max = problem.lower_bound or -10, problem.upper_bound or 10
+    y_min, y_max = problem.lower_bound or -10, problem.upper_bound or 10
+    
+    x = np.linspace(x_min, x_max, resolution)
+    y = np.linspace(y_min, y_max, resolution)
+    X, Y = np.meshgrid(x, y)
+    
+    XY = np.stack([X.ravel(), Y.ravel()], axis=1)
+    Z = np.array([problem.evaluate(xy) for xy in XY]).reshape(X.shape)
+    
+    return x, y, Z
 
-    def _add_animation_controls(self, fig, frames, interval: int):
-        """Helper to add Play/Pause buttons and a timeline slider to the figure."""
-        fig.frames = frames
-        
-        sliders = [{
-            "pad": {"b": 10, "t": 50},
-            "len": 0.9,
-            "x": 0.1,
-            "y": 0,
-            "steps": [
+def _add_animation_controls(fig, frames, interval: int):
+    """Helper to add Play/Pause buttons and a timeline slider to the figure."""
+    fig.frames = frames
+    
+    sliders = [{
+        "pad": {"b": 10, "t": 50},
+        "len": 0.9,
+        "x": 0.1,
+        "y": 0,
+        "steps": [
+            {
+                "args": [[f.name], {"frame": {"duration": interval, "redraw": True},
+                                    "mode": "immediate",
+                                    "transition": {"duration": interval}}],
+                "label": f.name,
+                "method": "animate",
+            }
+            for f in frames
+        ],
+    }]
+
+    fig.update_layout(
+        updatemenus=[{
+            "buttons": [
                 {
-                    "args": [[f.name], {"frame": {"duration": interval, "redraw": True},
-                                        "mode": "immediate",
-                                        "transition": {"duration": interval}}],
-                    "label": f.name,
+                    "args": [None, {"frame": {"duration": interval, "redraw": True},
+                                    "fromcurrent": True, "transition": {"duration": interval}}],
+                    "label": "Play",
+                    "method": "animate",
+                },
+                {
+                    "args": [[None], {"frame": {"duration": 0, "redraw": False},
+                                        "mode": "immediate", "transition": {"duration": 0}}],
+                    "label": "Pause",
                     "method": "animate",
                 }
-                for f in frames
             ],
-        }]
+            "direction": "left",
+            "pad": {"r": 10, "t": 87},
+            "showactive": False,
+            "type": "buttons",
+            "x": 0.1,
+            "xanchor": "right",
+            "y": 0,
+            "yanchor": "top"
+        }],
+        sliders=sliders
+    )
+    return fig
 
-        fig.update_layout(
-            updatemenus=[{
-                "buttons": [
-                    {
-                        "args": [None, {"frame": {"duration": interval, "redraw": True},
-                                        "fromcurrent": True, "transition": {"duration": interval}}],
-                        "label": "Play",
-                        "method": "animate",
-                    },
-                    {
-                        "args": [[None], {"frame": {"duration": 0, "redraw": False},
-                                          "mode": "immediate", "transition": {"duration": 0}}],
-                        "label": "Pause",
-                        "method": "animate",
-                    }
-                ],
-                "direction": "left",
-                "pad": {"r": 10, "t": 87},
-                "showactive": False,
-                "type": "buttons",
-                "x": 0.1,
-                "xanchor": "right",
-                "y": 0,
-                "yanchor": "top"
-            }],
-            sliders=sliders
-        )
-        return fig
+def visualize_2d(
+        result: ContinuousResult,
+        canvas_size: tuple[float, float] = (10, 8),
+        mesh_resolution: int = 100,
+        interval: int = 100, 
+        dark_theme: bool = False, 
+        on_jupyter_notebook: bool = True, 
+        export_html: str | None = None, 
+        export_mp4: str | None = None):
+    """
+    Visualizes the optimization process in 2D contour plot
+    Args:
+        result: The continuous result to visualize
+        mesh_resolution: Number of points along each axis for the surface grid.
+        canvas_size: Width and height of the figure in inches.
+        interval: Time in milliseconds between animation frames.
+        dark_theme: Whether to use a dark theme
+        on_jupyter_notebook: Whether to display the animation in a Jupyter Notebook. Set to False to display in a separate window
+        export_html: If provided, saves the animation as an HTML file
+        export_mp4: If provided, saves the animation as an MP4 video file
+    """
 
-    def visualize_2d(self, 
-            canvas_size: tuple[float, float] = (10, 8),
-            mesh_resolution: int = 100,
-            interval: int = 100, 
-            dark_theme: bool = False, 
-            on_jupyter_notebook: bool = True, 
-            export_html: str | None = None, 
-            export_mp4: str | None = None):
-        """
-        Visualizes the optimization process in 2D contour plot
-        Args:
-            mesh_resolution: Number of points along each axis for the surface grid.
-            canvas_size: Width and height of the figure in inches.
-            interval: Time in milliseconds between animation frames.
-            dark_theme: Whether to use a dark theme
-            on_jupyter_notebook: Whether to display the animation in a Jupyter Notebook. Set to False to display in a separate window
-            export_html: If provided, saves the animation as an HTML file
-            export_mp4: If provided, saves the animation as an MP4 video file
-        """
-
-        if self.problem.dimension != 2:
-            raise ValueError("2D visualization requires dimension=2")
-        
-        # 1. Theme and Color setup
-        if dark_theme:
-            plt.style.use('dark_background')
-            surface_colorscale = 'plasma'
-            point_color = '#00FFFF'
-            best_point_color = '#FFFFFF'
-        else:
-            plt.style.use('default')
-            surface_colorscale = 'viridis'
-            point_color = '#FF0000'
-            best_point_color = '#FFD000'
-            
-        fig, ax = plt.subplots(figsize=canvas_size)
-        
-        # Get grid data
-        x, y, Z = self._create_mesh_grid(mesh_resolution)
-        
-        # Strict mathematical bounds based on your mesh grid
-        x_min, x_max = float(np.min(x)), float(np.max(x))
-        y_min, y_max = float(np.min(y)), float(np.max(y))
-        
-        # 2. Draw Landscape (Contour)
-        # Assuming x and y are 1D arrays and Z is 2D. 
-        # contourf provides filled contours similar to Plotly's default contour.
-        contour = ax.contourf(x, y, Z, levels=30, cmap=surface_colorscale, alpha=0.7)
-        fig.colorbar(contour, ax=ax, label='f(x)')
-        
-        # 3. Draw the Best Point
-        ax.scatter(
-            self.result.best_x[0], self.result.best_x[1],
-            c=best_point_color, marker='*', s=200, edgecolors='black', linewidths=1,
-            label=f'Best: {self.result.best_value:.6g}', zorder=3
-        )
-        
-        # 4. Filter initial swarm to discard out-of-bounds points
-        init_x, init_y = [], []
-        for p in self.result.history.history_x[0]:
-            if x_min <= p[0] <= x_max and y_min <= p[1] <= y_max:
-                init_x.append(p[0])
-                init_y.append(p[1])
-                
-        # Draw Initial Swarm
-        swarm_scatter = ax.scatter(
-            init_x, init_y, c=point_color, s=40, edgecolors='black', linewidths=1,
-            label='Agent', zorder=2
-        )
-        
-        # 5. Lock the axes
-        ax.set_xlim(x_min, x_max)
-        ax.set_ylim(y_min, y_max)
-        ax.set_xlabel('x₁')
-        ax.set_ylabel('x₂')
-        
-        # Format Title (Matplotlib handles newlines with \n instead of <br>)
-        title_text = (
-            f"2D Contour: {str(self.problem)}; runtime={self.result.time:.2f}ms\n"
-            f"{self.result.algorithm}; rngseed={self.result.rng_seed}"
-        )
-        ax.set_title(title_text)
-        
-        # Place legend outside the plot
-        ax.legend(loc='upper left', bbox_to_anchor=(1.15, 1), borderaxespad=0.)
-        fig.tight_layout() # Ensures legend and labels aren't cut off
-
-        # 6. Animation Update Function
-        def update(frame_idx):
-            curr_x, curr_y = [], []
-            
-            # Filter animation frames to discard out-of-bounds points
-            for p in self.result.history.history_x[frame_idx]:
-                if x_min <= p[0] <= x_max and y_min <= p[1] <= y_max:
-                    curr_x.append(p[0])
-                    curr_y.append(p[1])
-            
-            # Matplotlib scatter set_offsets expects an (N, 2) array
-            if curr_x: # Check if there are points to plot
-                swarm_scatter.set_offsets(np.c_[curr_x, curr_y])
-            else:
-                swarm_scatter.set_offsets(np.empty((0, 2)))
-                
-            return swarm_scatter,
-        
-        # Create the animation
-        ani = animation.FuncAnimation(
-            fig, update, 
-            frames=len(self.result.history.history_x),
-            interval=interval, 
-            blit=True, # Blitting optimizes rendering by only redrawing changed elements
-            repeat=False
-        )
-
-        if export_mp4:
-            mp4_writer = animation.FFMpegWriter(
-                fps=10, 
-                codec='libx264', 
-                bitrate=1800, # Higher bitrate = better quality, larger file
-                extra_args=['-pix_fmt', 'yuv420p'] # Ensures compatibility across most media players
-            )
-            ani.save(export_mp4, writer=mp4_writer)
-            print(f"Animation video saved as {export_mp4}")
-        
-        html_string = ani.to_jshtml()
-        if export_html:
-            with open(export_html, 'w') as f:
-                f.write(html_string)
-            print(f"Animation HTML saved as {export_html}")
-
-        if on_jupyter_notebook:
-            html_anim = HTML(html_string)
-            plt.close() # Prevents a static plot from showing up in Jupyter
-            display(html_anim)
-        else:
-            plt.show()
-        
-        # It's important to return the 'ani' object as well. 
-        # If the animation object is garbage collected, the animation will freeze.
-        return fig, ani
+    if result.problem.dimension != 2:
+        raise ValueError("2D visualization requires dimension=2")
     
-    def visualize_3d(self,  
-            mesh_resolution: int = 60,
-            canvas_size: tuple[float, float] = (1040, 780),
-            interval: int = 100, 
-            dark_theme: bool = False):
-        """
-        Visualizes the optimization process in 3D
-        Args:
-            mesh_resolution: Number of points along each axis for the surface grid.
-            canvas_size: Width and height of the figure in pixel.
-            interval: Time in milliseconds between animation frames.
-            dark_theme: Whether to use a dark theme
-        """
-        if self.problem.dimension != 2:
-            raise ValueError("3D visualization requires dimension=2")
+    # 1. Theme and Color setup
+    if dark_theme:
+        plt.style.use('dark_background')
+        surface_colorscale = 'plasma'
+        point_color = '#00FFFF'
+        best_point_color = '#FFFFFF'
+    else:
+        plt.style.use('default')
+        surface_colorscale = 'viridis'
+        point_color = '#FF0000'
+        best_point_color = '#FFD000'
         
-        plotly_template: str = "plotly_dark" if dark_theme else "plotly_white"
-        surface_colorscale: str = "Plasma" if dark_theme else "Viridis"
-        point_color = "#00FFFF" if dark_theme else "#FF0000"       
-        best_point_color = "#FFFFFF" if dark_theme else "#FFD000"  
-        
-        x, y, Z = self._create_mesh_grid(mesh_resolution)
-        
-        # 1. Base Traces
-        surface = go.Surface(z=Z, x=x, y=y, colorscale=surface_colorscale, opacity=0.8, name='Landscape')
-        
-        best_point = go.Scatter3d(
-            x=[self.result.best_x[0]], y=[self.result.best_x[1]], z=[self.result.best_value],
-            mode='markers', marker=dict(color=best_point_color, symbol='diamond', size=5),
-            name=f'Best: {self.result.best_value:.6g}',
-            hovertemplate="Best Value: %{z} at (%{x}, %{y})<extra></extra>"
-        )
-        
-        init_x = [p[0] for p in self.result.history.history_x[0]]
-        init_y = [p[1] for p in self.result.history.history_x[0]]
-        init_z = self.result.history.history_value[0]
-        swarm = go.Scatter3d(
-            x=init_x, y=init_y, z=init_z, mode='markers',
-            marker=dict(color=point_color, size=3),
-            name='Agent'
-        )
-        
-        fig = go.Figure(data=[surface, best_point, swarm])
-        
-        # 2. Animations
-        frames = []
-        for i in range(len(self.result.history.history_x)):
-            curr_x = [p[0] for p in self.result.history.history_x[i]]
-            curr_y = [p[1] for p in self.result.history.history_x[i]]
-            curr_z = self.result.history.history_value[i]
+    fig, ax = plt.subplots(figsize=canvas_size)
+    
+    # Get grid data
+    x, y, Z = _create_mesh_grid(result.problem, mesh_resolution)
+    
+    # Strict mathematical bounds based on your mesh grid
+    x_min, x_max = float(np.min(x)), float(np.max(x))
+    y_min, y_max = float(np.min(y)), float(np.max(y))
+    
+    # 2. Draw Landscape (Contour)
+    # Assuming x and y are 1D arrays and Z is 2D. 
+    # contourf provides filled contours similar to Plotly's default contour.
+    contour = ax.contourf(x, y, Z, levels=30, cmap=surface_colorscale, alpha=0.7)
+    fig.colorbar(contour, ax=ax, label='f(x)')
+    
+    # 3. Draw the Best Point
+    ax.scatter(
+        result.best_x[0], result.best_x[1],
+        c=best_point_color, marker='*', s=200, edgecolors='black', linewidths=1,
+        label=f'Best: {result.best_value:.6g}', zorder=3
+    )
+    
+    # 4. Filter initial swarm to discard out-of-bounds points
+    init_x, init_y = [], []
+    for p in result.history.history_x[0]:
+        if x_min <= p[0] <= x_max and y_min <= p[1] <= y_max:
+            init_x.append(p[0])
+            init_y.append(p[1])
             
-            frame = go.Frame(
-                data=[go.Scatter3d(x=curr_x, y=curr_y, z=curr_z)],
-                traces=[2], # Target the swarm trace (index 2)
-                name=str(i)
-            )
-            frames.append(frame)
-            
-        fig = self._add_animation_controls(fig, frames, interval)
+    # Draw Initial Swarm
+    swarm_scatter = ax.scatter(
+        init_x, init_y, c=point_color, s=40, edgecolors='black', linewidths=1,
+        label='Agent', zorder=2
+    )
+    
+    # 5. Lock the axes
+    ax.set_xlim(x_min, x_max)
+    ax.set_ylim(y_min, y_max)
+    ax.set_xlabel('x₁')
+    ax.set_ylabel('x₂')
+    
+    # Format Title (Matplotlib handles newlines with \n instead of <br>)
+    title_text = (
+        f"2D Contour: {str(result.problem)}; runtime={result.time:.2f}ms\n"
+        f"{result.algorithm}; rngseed={result.rng_seed}"
+    )
+    ax.set_title(title_text)
+    
+    # Place legend outside the plot
+    ax.legend(loc='upper left', bbox_to_anchor=(1.15, 1), borderaxespad=0.)
+    fig.tight_layout() # Ensures legend and labels aren't cut off
 
-        fig.update_layout(
-            template=plotly_template,
-            legend=dict(yanchor="top", y=0.99, xanchor="left", x=1.15),
-            title_text=(
-                f"3D Graph: {str(self.problem)}; runtime={self.result.time:.2f}ms<br>"
-                f"<sup>{self.result.algorithm}; rngseed={self.result.rng_seed}</sup>"
-            ),
-            scene=dict(xaxis_title='x₁', yaxis_title='x₂', zaxis_title='f(x)'),
-            width=canvas_size[0], height=canvas_size[1],
-            margin=dict(l=0, r=0, b=0, t=50)
-        )
+    # 6. Animation Update Function
+    def update(frame_idx):
+        curr_x, curr_y = [], []
         
-        fig.show()
+        # Filter animation frames to discard out-of-bounds points
+        for p in result.history.history_x[frame_idx]:
+            if x_min <= p[0] <= x_max and y_min <= p[1] <= y_max:
+                curr_x.append(p[0])
+                curr_y.append(p[1])
+        
+        # Matplotlib scatter set_offsets expects an (N, 2) array
+        if curr_x: # Check if there are points to plot
+            swarm_scatter.set_offsets(np.c_[curr_x, curr_y])
+        else:
+            swarm_scatter.set_offsets(np.empty((0, 2)))
+            
+        return swarm_scatter,
+    
+    # Create the animation
+    ani = animation.FuncAnimation(
+        fig, update, 
+        frames=len(result.history.history_x),
+        interval=interval, 
+        blit=True, # Blitting optimizes rendering by only redrawing changed elements
+        repeat=False
+    )
+
+    if export_mp4:
+        mp4_writer = animation.FFMpegWriter(
+            fps=10, 
+            codec='libx264', 
+            bitrate=1800, # Higher bitrate = better quality, larger file
+            extra_args=['-pix_fmt', 'yuv420p'] # Ensures compatibility across most media players
+        )
+        ani.save(export_mp4, writer=mp4_writer)
+        print(f"Animation video saved as {export_mp4}")
+    
+    html_string = ani.to_jshtml()
+    if export_html:
+        with open(export_html, 'w') as f:
+            f.write(html_string)
+        print(f"Animation HTML saved as {export_html}")
+
+    if on_jupyter_notebook:
+        html_anim = HTML(html_string)
+        plt.close() # Prevents a static plot from showing up in Jupyter
+        display(html_anim)
+    else:
+        plt.show()
+    
+    # It's important to return the 'ani' object as well. 
+    # If the animation object is garbage collected, the animation will freeze.
+    return fig, ani
+
+def visualize_3d(
+        result: ContinuousResult, 
+        mesh_resolution: int = 60,
+        canvas_size: tuple[float, float] = (1040, 780),
+        interval: int = 100, 
+        dark_theme: bool = False):
+    """
+    Visualizes the optimization process in 3D
+    Args:
+        result: The continuous result to visualize
+        mesh_resolution: Number of points along each axis for the surface grid.
+        canvas_size: Width and height of the figure in pixel.
+        interval: Time in milliseconds between animation frames.
+        dark_theme: Whether to use a dark theme
+    """
+    if result.problem.dimension != 2:
+        raise ValueError("3D visualization requires dimension=2")
+    
+    plotly_template: str = "plotly_dark" if dark_theme else "plotly_white"
+    surface_colorscale: str = "Plasma" if dark_theme else "Viridis"
+    point_color = "#00FFFF" if dark_theme else "#FF0000"       
+    best_point_color = "#FFFFFF" if dark_theme else "#FFD000"  
+    
+    x, y, Z = _create_mesh_grid(result.problem, mesh_resolution)
+    
+    # 1. Base Traces
+    surface = go.Surface(z=Z, x=x, y=y, colorscale=surface_colorscale, opacity=0.8, name='Landscape')
+    
+    best_point = go.Scatter3d(
+        x=[result.best_x[0]], y=[result.best_x[1]], z=[result.best_value],
+        mode='markers', marker=dict(color=best_point_color, symbol='diamond', size=5),
+        name=f'Best: {result.best_value:.6g}',
+        hovertemplate="Best Value: %{z} at (%{x}, %{y})<extra></extra>"
+    )
+    
+    init_x = [p[0] for p in result.history.history_x[0]]
+    init_y = [p[1] for p in result.history.history_x[0]]
+    init_z = result.history.history_value[0]
+    swarm = go.Scatter3d(
+        x=init_x, y=init_y, z=init_z, mode='markers',
+        marker=dict(color=point_color, size=3),
+        name='Agent'
+    )
+    
+    fig = go.Figure(data=[surface, best_point, swarm])
+    
+    # 2. Animations
+    frames = []
+    for i in range(len(result.history.history_x)):
+        curr_x = [p[0] for p in result.history.history_x[i]]
+        curr_y = [p[1] for p in result.history.history_x[i]]
+        curr_z = result.history.history_value[i]
+        
+        frame = go.Frame(
+            data=[go.Scatter3d(x=curr_x, y=curr_y, z=curr_z)],
+            traces=[2], # Target the swarm trace (index 2)
+            name=str(i)
+        )
+        frames.append(frame)
+        
+    fig = _add_animation_controls(fig, frames, interval)
+
+    fig.update_layout(
+        template=plotly_template,
+        legend=dict(yanchor="top", y=0.99, xanchor="left", x=1.15),
+        title_text=(
+            f"3D Graph: {str(result.problem)}; runtime={result.time:.2f}ms<br>"
+            f"<sup>{result.algorithm}; rngseed={result.rng_seed}</sup>"
+        ),
+        scene=dict(xaxis_title='x₁', yaxis_title='x₂', zaxis_title='f(x)'),
+        width=canvas_size[0], height=canvas_size[1],
+        margin=dict(l=0, r=0, b=0, t=50)
+    )
+    
+    fig.show()
     
 def visualize_convergence(result: ContinuousResult | DiscreteResult, dark_theme: bool = False):
     history = result.history
@@ -456,6 +453,7 @@ def visualize_runtime_vs_best(
 
 def visualize_convergence_multiple(
     results: list[ContinuousResult] | list[DiscreteResult] | list[ContinuousResult | DiscreteResult], 
+    canvas_size: tuple[float, float] = (1120, 780),
     dark_theme: bool = False
 ):
     """
@@ -540,6 +538,8 @@ def visualize_convergence_multiple(
             xanchor="left",
             x=1.02
         ),
+        width=canvas_size[0],
+        height=canvas_size[1],
         xaxis_title="Iteration",
         yaxis_title="Best Objective Value",
     )
@@ -1100,3 +1100,224 @@ def visualize_grid_search_multiple(
         fig.tight_layout()
         plt.show()
         return fig, axes
+
+def visualize_2d_static(
+    problem: ContinuousProblem,
+    canvas_size: tuple[float, float] = (10, 8),
+    mesh_resolution: int = 100,
+    dark_theme: bool = False,
+    on_jupyter_notebook: bool = True,
+):
+    """
+    Visualizes the optimization function in a static 2D contour plot
+    Args:
+        mesh_resolution: Number of points along each axis for the surface grid.
+        canvas_size: Width and height of the figure in inches.
+        dark_theme: Whether to use a dark theme
+        on_jupyter_notebook: Whether to display the animation in a Jupyter Notebook. Set to False to display in a separate window
+    """
+    if problem.dimension != 2:
+        raise ValueError("2D visualization requires dimension=2")
+
+    # Theme
+    if dark_theme:
+        plt.style.use("dark_background")
+        surface_colorscale = "plasma"
+    else:
+        plt.style.use("default")
+        surface_colorscale = "viridis"
+
+    fig, ax = plt.subplots(figsize=canvas_size)
+
+    # Grid + contour
+    x, y, Z = _create_mesh_grid(problem, mesh_resolution)
+    contour = ax.contourf(x, y, Z, levels=30, cmap=surface_colorscale, alpha=0.75)
+    fig.colorbar(contour, ax=ax, label="f(x)")
+
+    # Bounds
+    x_min, x_max = float(np.min(x)), float(np.max(x))
+    y_min, y_max = float(np.min(y)), float(np.max(y))
+
+    # Labels, title, legend
+    ax.set_xlim(x_min, x_max)
+    ax.set_ylim(y_min, y_max)
+    ax.set_xlabel("x₁")
+    ax.set_ylabel("x₂")
+    ax.set_title(
+        f"Static 2D Contour: {str(problem)}\n"
+    )
+    fig.tight_layout()
+
+    if on_jupyter_notebook:
+        display(fig)
+        plt.close(fig)
+    else:
+        plt.show()
+
+    return fig, ax
+
+def visualize_3d_static(
+        problem: ContinuousProblem,
+        mesh_resolution: int = 60,
+        canvas_size: tuple[float, float] = (1040, 780),
+        dark_theme: bool = False):
+    """
+    Visualizes the optimization function in a 3D plot
+    Args:
+        problem: The continuous problem to visualize
+        mesh_resolution: Number of points along each axis for the surface grid.
+        canvas_size: Width and height of the figure in pixels.
+        dark_theme: Whether to use a dark theme
+    """
+    if problem.dimension != 2:
+        raise ValueError("3D visualization requires dimension=2")
+    
+    plotly_template: str = "plotly_dark" if dark_theme else "plotly_white"
+    surface_colorscale: str = "Plasma" if dark_theme else "Viridis"
+
+    x, y, Z = _create_mesh_grid(problem, mesh_resolution)
+
+    # Surface
+    surface = go.Surface(
+        z=Z, x=x, y=y,
+        colorscale=surface_colorscale,
+        opacity=0.85,
+        name="Landscape"
+    )
+
+    fig = go.Figure(data=[surface])
+
+    fig.update_layout(
+        template=plotly_template,
+        legend=dict(yanchor="top", y=0.99, xanchor="left", x=1.02),
+        title_text=(
+            f"3D Graph (Static): {str(problem)}"
+        ),
+        scene=dict(
+            xaxis_title="x₁",
+            yaxis_title="x₂",
+            zaxis_title="f(x)"
+        ),
+        width=canvas_size[0],
+        height=canvas_size[1],
+        margin=dict(l=0, r=0, b=0, t=50)
+    )
+
+    return fig
+
+def _benchmark_continuous(problem: ContinuousProblem, max_dim=20, rng_seed: int | None = None):
+    # dimension in problem is ignored
+
+    from swarmalgo.aco import aco_continuous
+    from swarmalgo.pso import pso_continuous
+    from swarmalgo.abc import abc_continuous
+    from swarmalgo.cuckoo_search import cuckoo_search_continuous
+    from swarmalgo.tlbo import tlbo_continuous
+    from swarmalgo.firefly import firefly_continuous
+    from algo.simulated_annealing import simulated_annealing_continuous, simulated_annealing_linear_continuous
+    from algo.differential_evolution import differential_evolution_continuous
+    from algo.genetic import genetic_algorithm_continuous
+
+    mapper: list[dict[str, float]] = [dict() for _ in range(max_dim + 1)]
+    funclist = [aco_continuous, pso_continuous, abc_continuous, 
+                cuckoo_search_continuous, tlbo_continuous, firefly_continuous, 
+                simulated_annealing_continuous, simulated_annealing_linear_continuous, 
+                differential_evolution_continuous, genetic_algorithm_continuous]
+    base_json = problem.to_json()
+    
+    for dim in range(1, max_dim+1, 1):
+        # Rebuild same problem type with different dimension
+        cfg = dict(base_json)
+        cfg["dimension"] = dim
+        p_dim = ContinuousProblem.from_json(cfg)
+        for func in funclist:
+            result: ContinuousResult = func(problem=p_dim, rng_seed=rng_seed)
+            mapper[dim][result.short_name] = result.time
+        
+    return mapper
+
+def visualize_benchmark_continuous(problem: ContinuousProblem, max_dim=20, rng_seed: int | None = None, dark_theme: bool = False):
+    """
+    Visualize benchmarks of multiple continuous algos across different dimensions 
+    """
+    if max_dim < 1:
+        raise ValueError("max_dim must be >= 1")
+
+    benchmark_rows = _benchmark_continuous(problem=problem, max_dim=max_dim, rng_seed=rng_seed)
+
+    # x-axis
+    dimensions = list(range(1, max_dim + 1))
+
+    # Convert benchmark rows (per-dimension dict) -> per-algorithm series
+    times_data: dict[str, list[float]] = {}
+    for dim in dimensions:
+        row = benchmark_rows[dim] if dim < len(benchmark_rows) else {}
+        for algo, t in row.items():
+            if algo not in times_data:
+                times_data[algo] = [math.nan] * max_dim
+            times_data[algo][dim - 1] = float(t)
+
+    template = "plotly_dark" if dark_theme else "plotly_white"
+    grid_color = "rgba(255, 255, 255, 0.20)" if dark_theme else "rgba(0, 0, 0, 0.15)"
+
+    fig = go.Figure()
+
+    for algo in sorted(times_data.keys()):
+        fig.add_trace(
+            go.Scatter(
+                x=dimensions,
+                y=times_data[algo],
+                mode="lines+markers",
+                name=algo,
+                marker=dict(size=6),
+                line=dict(width=1.5),
+                connectgaps=False,
+                hovertemplate="Algo: %{fullData.name}<br>Dim: %{x}<br>Runtime: %{y:.3f} ms<extra></extra>",
+            )
+        )
+
+    fig.update_layout(
+        title=f"Runtime across dimensions<br><sup>{problem.__class__.__name__}</sup>",
+        title_x=0.5,
+        xaxis_title="Dimension",
+        yaxis_title="Runtime (ms)",
+        template=template,
+        legend=dict(
+            yanchor="top",
+            y=1.0,
+            xanchor="left",
+            x=1.02,
+            bordercolor="Gray",
+            borderwidth=1
+        ),
+        margin=dict(l=60, r=170, t=70, b=60),
+        hovermode="x unified",
+        height=850,
+        width=1250
+    )
+
+    fig.update_xaxes(
+        tickmode="linear",
+        dtick=1,
+        showgrid=True,
+        gridwidth=1,
+        gridcolor=grid_color,
+        griddash="dash",
+        zeroline=False,
+        showline=True,
+        linewidth=1,
+        linecolor="gray",
+    )
+
+    fig.update_yaxes(
+        showgrid=True,
+        gridwidth=1,
+        gridcolor=grid_color,
+        griddash="dash",
+        zeroline=False,
+        showline=True,
+        linewidth=1,
+        linecolor="gray",
+    )
+
+    return fig
