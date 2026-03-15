@@ -108,6 +108,8 @@ class RosenbrockFunction(ContinuousProblem):
         return self._rosenbrock_function_generalized(x, a=1.0, b=100.0)
 
     def __init__(self, dimension: int, lower_bound: Float | None = None, upper_bound: Float | None = None):
+        self.a = 1.0
+        self.b = 100.0
         super().__init__(objective_function=self._rosenbrock_function, dimension=dimension, lower_bound=lower_bound, upper_bound=upper_bound)
 
     @override
@@ -218,6 +220,9 @@ class AckleyFunction(ContinuousProblem):
         return self._ackley_function_generalized(x, a=20, b=0.2, c=2 * np.pi)
 
     def __init__(self, dimension: int, lower_bound: Float = -32.768, upper_bound: Float = 32.768):
+        self.a = 20
+        self.b = 0.2
+        self.c = 2 * np.pi
         super().__init__(objective_function=self._ackley_function, dimension=dimension, lower_bound=lower_bound, upper_bound=upper_bound)
 
     @override
