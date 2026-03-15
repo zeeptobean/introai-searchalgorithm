@@ -563,8 +563,7 @@ def visualize_knapsack(result: 'DiscreteResult', dark_theme: bool = False):
     if not isinstance(result.problem, KnapsackFunction):
         raise TypeError(f"Expected KnapsackFunction, got {type(result.problem)}")
     if iterations == 0:
-        print("No history data to visualize.")
-        return
+        raise ValueError("No history data to visualize.")
 
     num_agents: int = len(history.history_x[0])
     num_items: int = len(history.history_x[0][0])
@@ -1118,6 +1117,7 @@ def visualize_2d_static(
     mesh_resolution: int = 100,
     dark_theme: bool = False,
     on_jupyter_notebook: bool = True,
+    visible_title_text: bool = False
 ):
     """
     Visualizes the optimization function in a static 2D contour plot
@@ -1155,7 +1155,7 @@ def visualize_2d_static(
     ax.set_xlabel("x₁")
     ax.set_ylabel("x₂")
     ax.set_title(
-        f"Static 2D Contour: {str(problem)}\n"
+        f"Static 2D Contour: {str(problem)}\n" if visible_title_text else "",
     )
     fig.tight_layout()
 
@@ -1171,7 +1171,9 @@ def visualize_3d_static(
         problem: ContinuousProblem,
         mesh_resolution: int = 60,
         canvas_size: tuple[float, float] = (1040, 780),
-        dark_theme: bool = False):
+        dark_theme: bool = False,
+        visible_title_text: bool = False
+    ):
     """
     Visualizes the optimization function in a 3D plot
     Args:
@@ -1179,6 +1181,7 @@ def visualize_3d_static(
         mesh_resolution: Number of points along each axis for the surface grid.
         canvas_size: Width and height of the figure in pixels.
         dark_theme: Whether to use a dark theme
+        visible_title_text: Whether to display the title text
     """
     if problem.dimension != 2:
         raise ValueError("3D visualization requires dimension=2")
@@ -1202,7 +1205,7 @@ def visualize_3d_static(
         template=plotly_template,
         legend=dict(yanchor="top", y=0.99, xanchor="left", x=1.02),
         title_text=(
-            f"3D Graph (Static): {str(problem)}"
+            f"3D Graph (Static): {str(problem)}" if visible_title_text else None
         ),
         scene=dict(
             xaxis_title="x₁",
