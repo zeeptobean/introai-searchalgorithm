@@ -405,6 +405,8 @@ def visualize_runtime_vs_best(
             problem = obj.problem
         elif obj.problem != problem:
             raise ValueError("All results must be from the same problem for a meaningful comparison.")
+    if problem is None:
+        raise ValueError("No results provided for visualization.")
 
     labels = [r.short_name for r in results]
     runtimes = [float(r.time) for r in results]  # ms
@@ -439,7 +441,11 @@ def visualize_runtime_vs_best(
     )
 
     fig.update_layout(
-        title_text=f"Runtime vs Best Value Comparison<br><sup>{str(problem)}</sup>",
+        title_text=(
+            "Runtime vs Best Value Comparison<br>"
+            f"<sup>{str(problem)}</sup><br>"
+            f"<sup>{"Higher" if isinstance(problem, DiscreteProblem) and problem.is_max_value_problem() else "Lower"} best value is better</sup>"
+        ),
         template=plotly_template,
         barmode="group",
         yaxis=dict(title="Runtime (ms)", showgrid=False),
@@ -480,6 +486,8 @@ def visualize_convergence_multiple(
             problem = obj.problem
         elif obj.problem != problem:
             raise ValueError("All results must be from the same problem for a meaningful comparison.")
+    if problem is None:
+        raise ValueError("No results provided for visualization.")
     
     # Process each result
     for idx, result in enumerate(results):
@@ -526,7 +534,8 @@ def visualize_convergence_multiple(
     fig.update_layout(
         title_text=(
             f"Convergence Comparison<br>"
-            f"<sup>{str(problem)}</sup>"
+            f"<sup>{str(problem)}</sup><br>"
+            f"<sup>{"Higher" if isinstance(problem, DiscreteProblem) and problem.is_max_value_problem() else "Lower"} is better</sup>"
         ),
         template=plotly_template,
         hovermode="x unified",
@@ -689,7 +698,7 @@ def visualize_knapsack(result: 'DiscreteResult', dark_theme: bool = False):
 
     return fig
 
-def visualize_graph_coloring(result: DiscreteResult, dark_theme: bool = False):
+def visualize_graph_coloring(result: DiscreteResult, dark_theme: bool = False, canvas_size: tuple[float, float] = (1040, 780)) -> go.Figure:
     """
     Visualizes the result of a graph coloring optimization.
     """
@@ -769,7 +778,9 @@ def visualize_graph_coloring(result: DiscreteResult, dark_theme: bool = False):
             margin=dict(b=20, l=20, r=20, t=60),
             xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
             yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-            template=plotly_template
+            template=plotly_template,
+            width=canvas_size[0],
+            height=canvas_size[1],
         )
     )
 
@@ -943,7 +954,7 @@ def visualize_tsp_multiple(
         for j in range(len(results), len(axes)):
             axes[j].axis("off")
 
-        fig.suptitle(f"TSP Comparison: {problem_name}", fontsize=16, y=1.02)
+        fig.suptitle(f"TSP Comparison: {results[0].problem.dimension} cities", fontsize=16, y=1.02)
         fig.tight_layout()
         plt.show()
         return fig, axes
