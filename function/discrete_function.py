@@ -64,6 +64,21 @@ class TSPFunction(DiscreteProblem):
         distance_matrix = np.array(json_data["distance_matrix"])
         return TSPFunction(dimension=dimension, distance_matrix=distance_matrix)
     
+    @staticmethod
+    def generate_random(dimension: int, distance_range: tuple[Float, Float], rng_seed: int | None) -> 'TSPFunction':
+        """
+        Args:
+            dimension: Number of cites
+            distance_range: Tuple specifying the (min, max) range for edge distances
+            rng_seed: Optional random seed for reproducibility
+        """
+        rng = RNGWrapper(seed=rng_seed)
+        distance_matrix = rng.rng.uniform(distance_range[0], distance_range[1], size=(dimension, dimension))
+        # Symmetrize the matrix and set diagonal to 0
+        distance_matrix = (distance_matrix + distance_matrix.T) / 2
+        np.fill_diagonal(distance_matrix, 0)
+        return TSPFunction(dimension=dimension, distance_matrix=distance_matrix)
+
     @override
     def to_json(self) -> dict:
         return super().to_json() | {
@@ -111,6 +126,22 @@ class KnapsackFunction(DiscreteProblem):
         if values.shape[0] != dimension:
             raise ValueError(f"Values length ({values.shape[0]}) != dimension ({dimension})")
         super().__init__(objective_function=self.knapsack_objective, neighbor_function=self.knapsack_neighbor, random_solution_function=self.knapsack_random_solution, dimension=dimension)
+
+    @staticmethod
+    def generate_random(dimension: int, weight_range: tuple[Float, Float], value_range: tuple[Float, Float], capacity_factor: Float, rng_seed: int | None) -> 'KnapsackFunction':
+        """
+        Args:
+            dimension: Number of items
+            weight_range: Tuple specifying the (min, max) range for item weights
+            value_range: Tuple specifying the (min, max) range for item values
+            capacity_factor: A factor to determine the knapsack capacity based on total weight (e.g., 0.5 means capacity is half of total weight)
+            rng_seed: Optional random seed for reproducibility
+        """
+        rng = RNGWrapper(seed=rng_seed)
+        weights = rng.rng.uniform(weight_range[0], weight_range[1], size=dimension)
+        values = rng.rng.uniform(value_range[0], value_range[1], size=dimension)
+        capacity = np.sum(weights) * capacity_factor
+        return KnapsackFunction(dimension=dimension, weights=weights, values=values, capacity=capacity)
 
     @staticmethod
     def from_json(json_data: dict) -> 'KnapsackFunction':
@@ -182,6 +213,28 @@ class GraphColoringFunction(DiscreteProblem):
         return super().to_json() | {
             "adjacency_matrix": self.adjacency_matrix.tolist()
         }
+    
+    @staticmethod
+    def generate_random(dimension: int, edge_probability: Float, rng_seed: int | None) -> 'GraphColoringFunction':
+        """
+        Generate a random graph and return a GraphColoringFunction for it.
+        
+        Args:
+            dimension: Number of vertices in the graph
+            edge_probability: Probability of edge creation between any two vertices (0 to 1)
+            rng_seed: Optional random seed for reproducibility
+        """
+        if(dimension <= 0):
+            raise ValueError("Dimension must be greater than 0.")
+        if not 0 <= edge_probability <= 1:
+            raise ValueError("Edge probability must be between 0 and 1.")
+        rng = RNGWrapper(seed=rng_seed)
+        adjacency_matrix = rng.rng.choice([0, 1], size=(dimension, dimension), p=[1-edge_probability, edge_probability])
+        # Symmetrize the matrix and set diagonal to 0
+        adjacency_matrix = np.triu(adjacency_matrix, 1)
+        adjacency_matrix += adjacency_matrix.T
+        np.fill_diagonal(adjacency_matrix, 0)
+        return GraphColoringFunction(dimension=dimension, adjacency_matrix=adjacency_matrix)
 
     @staticmethod
     def from_adjlist(adjacency_list: dict[int, list[int]]) -> 'GraphColoringFunction':
